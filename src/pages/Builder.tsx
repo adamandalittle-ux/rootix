@@ -103,11 +103,6 @@ export default function Builder() {
     setInput("");
     setLoading(true);
 
-    // Stream assistant response
-    let assistantSoFar = "";
-    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
-    try {
     // Stream assistant response + tool call
     let assistantSoFar = "";
     const toolAcc = { name: undefined as string | undefined, args: "" };
