@@ -5,28 +5,20 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Send, Sparkles, Loader2 } from "lucide-react";
+import { getTemplateById, TEMPLATES } from "@/lib/templates";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-interface PlatformConfig {
+// Config coming from the AI via tool call
+interface AIConfig {
   teacher_name: string;
   teacher_phone: string;
   subject: string;
   stage: string;
   grade_levels: string[];
   platform_name: string;
-  logo_text: string;
   mood: string;
-  primary_color: string;
-  accent_color: string;
-  button_shape: string;
-  sounds_enabled: boolean;
-  animation_level: string;
-  ai_summary_enabled: boolean;
-  welcome_message: string;
-  codes_count: number;
-  videos_label: string;
-  exams_label: string;
+  template_id: string;
   template_tier: "normal" | "pro";
   package_students: number;
   package_price: number;
@@ -52,10 +44,10 @@ function accumulateToolCall(delta: any, acc: { name?: string; args: string }) {
   if (tc.function?.arguments) acc.args += tc.function.arguments;
 }
 
-function tryParseToolConfig(acc: { name?: string; args: string }): PlatformConfig | null {
+function tryParseToolConfig(acc: { name?: string; args: string }): AIConfig | null {
   if (acc.name !== "save_platform_config" || !acc.args) return null;
   try {
-    return JSON.parse(acc.args) as PlatformConfig;
+    return JSON.parse(acc.args) as AIConfig;
   } catch {
     return null;
   }
@@ -85,7 +77,7 @@ export default function Builder() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [finalConfig, setFinalConfig] = useState<PlatformConfig | null>(null);
+  const [finalConfig, setFinalConfig] = useState<AIConfig | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -196,6 +188,18 @@ export default function Builder() {
     try {
       const code = genCode();
       const slug = slugify(finalConfig.platform_name || finalConfig.teacher_name);
+      const template = getTemplateById(finalConfig.template_id);
+      const fullConfig = {
+        ...finalConfig,
+        template,
+        logo_text: finalConfig.platform_name.charAt(0),
+        welcome_message: `أهلاً بيك في ${finalConfig.platform_name} 🎉`,
+        codes_count: 100,
+        videos_label: "الفيديوهات",
+        exams_label: "الامتحانات",
+        sounds_enabled: finalConfig.template_tier === "pro",
+        ai_summary_enabled: finalConfig.template_tier === "pro",
+      };
       const { error } = await supabase.from("platforms").insert({
         code,
         slug,
@@ -207,7 +211,7 @@ export default function Builder() {
         template_tier: finalConfig.template_tier,
         package_students: finalConfig.package_students,
         package_price: finalConfig.package_price,
-        config: finalConfig as any,
+        config: fullConfig as any,
         status: "pending",
       });
       if (error) throw error;
@@ -293,9 +297,9 @@ export default function Builder() {
               <div><span className="text-muted-foreground">السعر:</span> {finalConfig.package_price} ج / شهر</div>
               <div><span className="text-muted-foreground">النوع:</span> {finalConfig.template_tier.toUpperCase()}</div>
               <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">اللون:</span>
-                <span className="w-4 h-4 rounded" style={{ backgroundColor: finalConfig.primary_color }} />
-                {finalConfig.primary_color}
+                <span className="text-muted-foreground">القالب:</span>
+                <span className="w-4 h-4 rounded" style={{ backgroundColor: getTemplateById(finalConfig.template_id).primary_color }} />
+                {getTemplateById(finalConfig.template_id).name_ar}
               </div>
             </div>
             <Button onClick={submitPlatform} disabled={submitting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">

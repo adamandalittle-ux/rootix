@@ -40,7 +40,22 @@ export default function Admin() {
   }, []);
 
   useEffect(() => {
-    if (loggedIn) load();
+    if (!loggedIn) return;
+    load();
+
+    // Realtime subscription — any change in platforms updates the list instantly
+    const channel = supabase
+      .channel("admin-platforms")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "platforms" },
+        () => load()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [loggedIn]);
 
   const load = async () => {

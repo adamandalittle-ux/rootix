@@ -23,6 +23,18 @@ export default function PlatformAdmin() {
   useEffect(() => {
     if (!loggedIn || !platform) return;
     refreshAll();
+
+    // Realtime: any change in content/students/codes updates instantly
+    const channel = supabase
+      .channel(`platform-${platform.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "content", filter: `platform_id=eq.${platform.id}` }, refreshAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "students", filter: `platform_id=eq.${platform.id}` }, refreshAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "student_codes", filter: `platform_id=eq.${platform.id}` }, refreshAll)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [loggedIn, platform]);
 
   const load = async () => {

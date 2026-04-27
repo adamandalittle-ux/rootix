@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BookOpen, Video, FileText, ListChecks, Sparkles, LogOut, Lock } from "lucide-react";
+import { getTemplateById, hexToHslString, type Template } from "@/lib/templates";
 
 interface Platform {
   id: string;
@@ -47,8 +48,43 @@ export default function PlatformPage() {
   }, [slug]);
 
   useEffect(() => {
-    if (platform && step === "dashboard") loadContent();
+    if (platform && step === "dashboard") {
+      loadContent();
+      // Realtime: new content appears immediately for the student
+      const channel = supabase
+        .channel(`student-content-${platform.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "content", filter: `platform_id=eq.${platform.id}` },
+          () => loadContent()
+        )
+        .subscribe();
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [platform, step]);
+
+  // Apply the selected template's colors to the page (CSS variables)
+  useEffect(() => {
+    if (!platform) return;
+    const tpl: Template = getTemplateById(platform.config?.template_id || platform.config?.template?.id);
+    const root = document.documentElement;
+    root.style.setProperty("--platform-primary", hexToHslString(tpl.primary_color));
+    root.style.setProperty("--platform-accent", hexToHslString(tpl.accent_color));
+    root.style.setProperty("--platform-bg", hexToHslString(tpl.bg_color));
+    root.style.setProperty("--platform-surface", hexToHslString(tpl.surface_color));
+    root.style.setProperty("--platform-text", hexToHslString(tpl.text_color));
+    root.style.setProperty("--platform-muted", hexToHslString(tpl.muted_color));
+    return () => {
+      root.style.removeProperty("--platform-primary");
+      root.style.removeProperty("--platform-accent");
+      root.style.removeProperty("--platform-bg");
+      root.style.removeProperty("--platform-surface");
+      root.style.removeProperty("--platform-text");
+      root.style.removeProperty("--platform-muted");
+    };
+  }, [platform]);
 
   const loadPlatform = async () => {
     const { data, error } = await supabase
