@@ -14,7 +14,265 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admins: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          password_hash: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          password_hash: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          password_hash?: string
+        }
+        Relationships: []
+      }
+      content: {
+        Row: {
+          created_at: string
+          data: Json
+          grade_level: string
+          id: string
+          kind: string
+          lesson: string | null
+          platform_id: string
+          title: string
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          grade_level: string
+          id?: string
+          kind: string
+          lesson?: string | null
+          platform_id: string
+          title: string
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          grade_level?: string
+          id?: string
+          kind?: string
+          lesson?: string | null
+          platform_id?: string
+          title?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_results: {
+        Row: {
+          answers: Json
+          created_at: string
+          exam_id: string
+          id: string
+          platform_id: string
+          score: number
+          student_id: string
+          total: number
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          exam_id: string
+          id?: string
+          platform_id: string
+          score?: number
+          student_id: string
+          total?: number
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          exam_id?: string
+          id?: string
+          platform_id?: string
+          score?: number
+          student_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_results_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_results_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platforms: {
+        Row: {
+          admin_notes: string | null
+          approved_at: string | null
+          code: string
+          config: Json
+          created_at: string
+          grade_levels: Json
+          id: string
+          package_price: number
+          package_students: number
+          payment_status: string
+          platform_admin_email: string | null
+          platform_admin_password: string | null
+          slug: string
+          stage: string
+          status: string
+          subject: string
+          teacher_name: string
+          teacher_phone: string
+          template_tier: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          approved_at?: string | null
+          code: string
+          config?: Json
+          created_at?: string
+          grade_levels?: Json
+          id?: string
+          package_price?: number
+          package_students?: number
+          payment_status?: string
+          platform_admin_email?: string | null
+          platform_admin_password?: string | null
+          slug: string
+          stage: string
+          status?: string
+          subject: string
+          teacher_name: string
+          teacher_phone: string
+          template_tier?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          approved_at?: string | null
+          code?: string
+          config?: Json
+          created_at?: string
+          grade_levels?: Json
+          id?: string
+          package_price?: number
+          package_students?: number
+          payment_status?: string
+          platform_admin_email?: string | null
+          platform_admin_password?: string | null
+          slug?: string
+          stage?: string
+          status?: string
+          subject?: string
+          teacher_name?: string
+          teacher_phone?: string
+          template_tier?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      student_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_used: boolean
+          platform_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_used?: boolean
+          platform_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_used?: boolean
+          platform_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_codes_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          access_code: string
+          created_at: string
+          full_name: string
+          grade_level: string
+          id: string
+          phone: string
+          platform_id: string
+        }
+        Insert: {
+          access_code: string
+          created_at?: string
+          full_name: string
+          grade_level: string
+          id?: string
+          phone: string
+          platform_id: string
+        }
+        Update: {
+          access_code?: string
+          created_at?: string
+          full_name?: string
+          grade_level?: string
+          id?: string
+          phone?: string
+          platform_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
