@@ -297,9 +297,9 @@ export default function Builder() {
               <div><span className="text-muted-foreground">السعر:</span> {finalConfig.package_price} ج / شهر</div>
               <div><span className="text-muted-foreground">النوع:</span> {finalConfig.template_tier.toUpperCase()}</div>
               <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">اللون:</span>
-                <span className="w-4 h-4 rounded" style={{ backgroundColor: finalConfig.primary_color }} />
-                {finalConfig.primary_color}
+                <span className="text-muted-foreground">القالب:</span>
+                <span className="w-4 h-4 rounded" style={{ backgroundColor: getTemplateById(finalConfig.template_id).primary_color }} />
+                {getTemplateById(finalConfig.template_id).name_ar}
               </div>
             </div>
             <Button onClick={submitPlatform} disabled={submitting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
