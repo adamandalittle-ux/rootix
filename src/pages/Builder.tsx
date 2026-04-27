@@ -44,16 +44,21 @@ function parseSuggestions(text: string): { clean: string; suggestions: string[] 
   }
 }
 
-function parseDoneConfig(text: string): PlatformConfig | null {
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
-  if (!jsonMatch) return null;
+// Tool-call accumulator for streamed function arguments
+function accumulateToolCall(delta: any, acc: { name?: string; args: string }) {
+  const tc = delta?.tool_calls?.[0];
+  if (!tc) return;
+  if (tc.function?.name) acc.name = tc.function.name;
+  if (tc.function?.arguments) acc.args += tc.function.arguments;
+}
+
+function tryParseToolConfig(acc: { name?: string; args: string }): PlatformConfig | null {
+  if (acc.name !== "save_platform_config" || !acc.args) return null;
   try {
-    const parsed = JSON.parse(jsonMatch[1]);
-    if (parsed.done && parsed.config) return parsed.config as PlatformConfig;
+    return JSON.parse(acc.args) as PlatformConfig;
   } catch {
     return null;
   }
-  return null;
 }
 
 function slugify(name: string): string {
