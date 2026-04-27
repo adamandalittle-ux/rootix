@@ -44,16 +44,21 @@ function parseSuggestions(text: string): { clean: string; suggestions: string[] 
   }
 }
 
-function parseDoneConfig(text: string): PlatformConfig | null {
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
-  if (!jsonMatch) return null;
+// Tool-call accumulator for streamed function arguments
+function accumulateToolCall(delta: any, acc: { name?: string; args: string }) {
+  const tc = delta?.tool_calls?.[0];
+  if (!tc) return;
+  if (tc.function?.name) acc.name = tc.function.name;
+  if (tc.function?.arguments) acc.args += tc.function.arguments;
+}
+
+function tryParseToolConfig(acc: { name?: string; args: string }): PlatformConfig | null {
+  if (acc.name !== "save_platform_config" || !acc.args) return null;
   try {
-    const parsed = JSON.parse(jsonMatch[1]);
-    if (parsed.done && parsed.config) return parsed.config as PlatformConfig;
+    return JSON.parse(acc.args) as PlatformConfig;
   } catch {
     return null;
   }
-  return null;
 }
 
 function slugify(name: string): string {
@@ -98,8 +103,9 @@ export default function Builder() {
     setInput("");
     setLoading(true);
 
-    // Stream assistant response
+    // Stream assistant response + tool call
     let assistantSoFar = "";
+    const toolAcc = { name: undefined as string | undefined, args: "" };
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
@@ -145,7 +151,8 @@ export default function Builder() {
           }
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            const delta = parsed.choices?.[0]?.delta;
+            const content = delta?.content as string | undefined;
             if (content) {
               assistantSoFar += content;
               setMessages((prev) => {
@@ -154,6 +161,7 @@ export default function Builder() {
                 return copy;
               });
             }
+            accumulateToolCall(delta, toolAcc);
           } catch {
             textBuffer = line + "\n" + textBuffer;
             break;
@@ -161,9 +169,19 @@ export default function Builder() {
         }
       }
 
-      // Check if AI finished (done: true)
-      const cfg = parseDoneConfig(assistantSoFar);
-      if (cfg) setFinalConfig(cfg);
+      // Check if AI called the save_platform_config tool
+      const cfg = tryParseToolConfig(toolAcc);
+      if (cfg) {
+        setFinalConfig(cfg);
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "✅ تمام! جهزت كل تفاصيل منصتك. راجع الملخص تحت واضغط تأكيد.",
+          };
+          return copy;
+        });
+      }
     } catch (e) {
       console.error(e);
       toast.error("حصل خطأ في الاتصال");
@@ -227,8 +245,7 @@ export default function Builder() {
           {messages.map((m, i) => {
             const isLast = i === messages.length - 1;
             const { clean: cleanText } = parseSuggestions(m.content);
-            const doneCfg = m.role === "assistant" ? parseDoneConfig(m.content) : null;
-            const displayContent = doneCfg ? "✅ تم تجهيز منصتك! راجع التفاصيل تحت واضغط تأكيد الطلب." : cleanText;
+            const displayContent = cleanText;
 
             return (
               <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"} fade-in-up`}>
