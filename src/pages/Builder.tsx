@@ -245,8 +245,7 @@ export default function Builder() {
           {messages.map((m, i) => {
             const isLast = i === messages.length - 1;
             const { clean: cleanText } = parseSuggestions(m.content);
-            const doneCfg = m.role === "assistant" ? parseDoneConfig(m.content) : null;
-            const displayContent = doneCfg ? "✅ تم تجهيز منصتك! راجع التفاصيل تحت واضغط تأكيد الطلب." : cleanText;
+            const displayContent = cleanText;
 
             return (
               <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"} fade-in-up`}>
