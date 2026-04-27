@@ -188,6 +188,18 @@ export default function Builder() {
     try {
       const code = genCode();
       const slug = slugify(finalConfig.platform_name || finalConfig.teacher_name);
+      const template = getTemplateById(finalConfig.template_id);
+      const fullConfig = {
+        ...finalConfig,
+        template,
+        logo_text: finalConfig.platform_name.charAt(0),
+        welcome_message: `أهلاً بيك في ${finalConfig.platform_name} 🎉`,
+        codes_count: 100,
+        videos_label: "الفيديوهات",
+        exams_label: "الامتحانات",
+        sounds_enabled: finalConfig.template_tier === "pro",
+        ai_summary_enabled: finalConfig.template_tier === "pro",
+      };
       const { error } = await supabase.from("platforms").insert({
         code,
         slug,
@@ -199,7 +211,7 @@ export default function Builder() {
         template_tier: finalConfig.template_tier,
         package_students: finalConfig.package_students,
         package_price: finalConfig.package_price,
-        config: finalConfig as any,
+        config: fullConfig as any,
         status: "pending",
       });
       if (error) throw error;
