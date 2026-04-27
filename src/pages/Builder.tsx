@@ -44,10 +44,10 @@ function accumulateToolCall(delta: any, acc: { name?: string; args: string }) {
   if (tc.function?.arguments) acc.args += tc.function.arguments;
 }
 
-function tryParseToolConfig(acc: { name?: string; args: string }): PlatformConfig | null {
+function tryParseToolConfig(acc: { name?: string; args: string }): AIConfig | null {
   if (acc.name !== "save_platform_config" || !acc.args) return null;
   try {
-    return JSON.parse(acc.args) as PlatformConfig;
+    return JSON.parse(acc.args) as AIConfig;
   } catch {
     return null;
   }
@@ -77,7 +77,7 @@ export default function Builder() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [finalConfig, setFinalConfig] = useState<PlatformConfig | null>(null);
+  const [finalConfig, setFinalConfig] = useState<AIConfig | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
