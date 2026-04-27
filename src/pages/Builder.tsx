@@ -108,6 +108,12 @@ export default function Builder() {
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
+    // Stream assistant response + tool call
+    let assistantSoFar = "";
+    const toolAcc = { name: undefined as string | undefined, args: "" };
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+    try {
       const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rootix-ai`;
       const resp = await fetch(CHAT_URL, {
         method: "POST",
@@ -150,7 +156,8 @@ export default function Builder() {
           }
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            const delta = parsed.choices?.[0]?.delta;
+            const content = delta?.content as string | undefined;
             if (content) {
               assistantSoFar += content;
               setMessages((prev) => {
@@ -159,6 +166,7 @@ export default function Builder() {
                 return copy;
               });
             }
+            accumulateToolCall(delta, toolAcc);
           } catch {
             textBuffer = line + "\n" + textBuffer;
             break;
@@ -166,9 +174,19 @@ export default function Builder() {
         }
       }
 
-      // Check if AI finished (done: true)
-      const cfg = parseDoneConfig(assistantSoFar);
-      if (cfg) setFinalConfig(cfg);
+      // Check if AI called the save_platform_config tool
+      const cfg = tryParseToolConfig(toolAcc);
+      if (cfg) {
+        setFinalConfig(cfg);
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "✅ تمام! جهزت كل تفاصيل منصتك. راجع الملخص تحت واضغط تأكيد.",
+          };
+          return copy;
+        });
+      }
     } catch (e) {
       console.error(e);
       toast.error("حصل خطأ في الاتصال");
