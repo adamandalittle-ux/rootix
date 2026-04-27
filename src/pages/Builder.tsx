@@ -5,28 +5,20 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Send, Sparkles, Loader2 } from "lucide-react";
+import { getTemplateById, TEMPLATES } from "@/lib/templates";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-interface PlatformConfig {
+// Config coming from the AI via tool call
+interface AIConfig {
   teacher_name: string;
   teacher_phone: string;
   subject: string;
   stage: string;
   grade_levels: string[];
   platform_name: string;
-  logo_text: string;
   mood: string;
-  primary_color: string;
-  accent_color: string;
-  button_shape: string;
-  sounds_enabled: boolean;
-  animation_level: string;
-  ai_summary_enabled: boolean;
-  welcome_message: string;
-  codes_count: number;
-  videos_label: string;
-  exams_label: string;
+  template_id: string;
   template_tier: "normal" | "pro";
   package_students: number;
   package_price: number;
