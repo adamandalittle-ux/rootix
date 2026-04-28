@@ -67,6 +67,48 @@ function genCode(): string {
   return "R-" + Math.floor(1000 + Math.random() * 9000);
 }
 
+function buildPlatformSummary(cfg: AIConfig, tpl: any, code: string, slug: string, adminEmail: string, adminPassword: string): string {
+  const subjectAr: Record<string, string> = {
+    math: "الرياضيات", science: "العلوم", arabic: "اللغة العربية", english: "اللغة الإنجليزية",
+    studies: "الدراسات", physics: "الفيزياء", chemistry: "الكيمياء", biology: "الأحياء", french: "الفرنساوي",
+  };
+  const stageAr: Record<string, string> = { primary: "الابتدائي", prep: "الإعدادي", secondary: "الثانوي" };
+  const isPro = cfg.template_tier === "pro";
+  return `
+**🎉 تمام يا ${cfg.teacher_name}، منصتك جاهزة!**
+
+دي كل التفاصيل اللي جهزتها لحضرتك:
+
+### 📚 عن المنصة
+- **الاسم:** ${cfg.platform_name}
+- **المادة:** ${subjectAr[cfg.subject] || cfg.subject}
+- **المرحلة:** ${stageAr[cfg.stage] || cfg.stage}
+- **الصفوف:** ${cfg.grade_levels.join("، ")}
+- **التصميم:** ${tpl.name_ar} (${tpl.mood === "luxury" ? "فخم" : tpl.mood === "tech" ? "تقني" : tpl.mood === "calm" ? "هادي" : tpl.mood === "warm" ? "دافي" : "عصري"})
+- **الباقة:** ${cfg.package_students} طالب — ${cfg.package_price} ج/شهر (${isPro ? "PRO ⭐" : "عادي"})
+
+### 🚀 ازاي المنصة بتشغل؟
+1. **رابط منصتك الخاص:** \`rootix.app/m/${slug}\` — ده اللي بتديه لطلابك.
+2. **لوحة تحكم حضرتك:** \`rootix.app/platform-admin/${slug}\` — من هنا بترفع فيديوهات، ملفات PDF، امتحانات، وتدير الطلاب.
+3. **الطلاب بيدخلوا إزاي؟** بتديهم كود (حضرتك بتعمله من لوحتك) + رقم تليفونهم. كل كود يستخدمه طالب واحد بس.
+4. **الحماية:** كل فيديو بيظهر فيه اسم الطالب ورقمه متحرك على الشاشة — لو حد صوّر، هتعرف مين.
+5. **المحتوى:** فيديوهات (رفع مباشر أو YouTube), ملفات PDF، امتحانات بأسئلة اختيار من متعدد، وتقرير بدرجات كل طالب.
+${isPro ? "6. **مميزات PRO:** مساعد AI للطلاب يشرحلهم الدروس + ملخصات تلقائية + أصوات تفاعلية + أنيميشن متقدم." : ""}
+
+### 🔐 بيانات دخول لوحتك (احفظها في مكان آمن!)
+- **الإيميل:** \`${adminEmail}\`
+- **كلمة السر:** \`${adminPassword}\`
+
+### ⏭️ الخطوات الجاية
+1. اختار باقتك من صفحة الأسعار (أو اتأكد منها).
+2. الأدمن هيكلمك على رقمك خلال ساعات.
+3. بعد استلام الفلوس، منصتك هتنشر على الرابط اللي فوق.
+4. ابدأ ترفع محتواك من لوحة المدرس!
+
+**كود تتبع طلبك:** \`${code}\`
+`.trim();
+}
+
 export default function Builder() {
   const [messages, setMessages] = useState<Msg[]>([
     {
