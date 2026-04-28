@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Send, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Loader2, Eye, Settings, CheckCircle2, ExternalLink, Rocket } from "lucide-react";
 import { getTemplateById, TEMPLATES } from "@/lib/templates";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -67,6 +67,48 @@ function genCode(): string {
   return "R-" + Math.floor(1000 + Math.random() * 9000);
 }
 
+function buildPlatformSummary(cfg: AIConfig, tpl: any, code: string, slug: string, adminEmail: string, adminPassword: string): string {
+  const subjectAr: Record<string, string> = {
+    math: "الرياضيات", science: "العلوم", arabic: "اللغة العربية", english: "اللغة الإنجليزية",
+    studies: "الدراسات", physics: "الفيزياء", chemistry: "الكيمياء", biology: "الأحياء", french: "الفرنساوي",
+  };
+  const stageAr: Record<string, string> = { primary: "الابتدائي", prep: "الإعدادي", secondary: "الثانوي" };
+  const isPro = cfg.template_tier === "pro";
+  return `
+**🎉 تمام يا ${cfg.teacher_name}، منصتك جاهزة!**
+
+دي كل التفاصيل اللي جهزتها لحضرتك:
+
+### 📚 عن المنصة
+- **الاسم:** ${cfg.platform_name}
+- **المادة:** ${subjectAr[cfg.subject] || cfg.subject}
+- **المرحلة:** ${stageAr[cfg.stage] || cfg.stage}
+- **الصفوف:** ${cfg.grade_levels.join("، ")}
+- **التصميم:** ${tpl.name_ar} (${tpl.mood === "luxury" ? "فخم" : tpl.mood === "tech" ? "تقني" : tpl.mood === "calm" ? "هادي" : tpl.mood === "warm" ? "دافي" : "عصري"})
+- **الباقة:** ${cfg.package_students} طالب — ${cfg.package_price} ج/شهر (${isPro ? "PRO ⭐" : "عادي"})
+
+### 🚀 ازاي المنصة بتشغل؟
+1. **رابط منصتك الخاص:** \`rootix.app/m/${slug}\` — ده اللي بتديه لطلابك.
+2. **لوحة تحكم حضرتك:** \`rootix.app/platform-admin/${slug}\` — من هنا بترفع فيديوهات، ملفات PDF، امتحانات، وتدير الطلاب.
+3. **الطلاب بيدخلوا إزاي؟** بتديهم كود (حضرتك بتعمله من لوحتك) + رقم تليفونهم. كل كود يستخدمه طالب واحد بس.
+4. **الحماية:** كل فيديو بيظهر فيه اسم الطالب ورقمه متحرك على الشاشة — لو حد صوّر، هتعرف مين.
+5. **المحتوى:** فيديوهات (رفع مباشر أو YouTube), ملفات PDF، امتحانات بأسئلة اختيار من متعدد، وتقرير بدرجات كل طالب.
+${isPro ? "6. **مميزات PRO:** مساعد AI للطلاب يشرحلهم الدروس + ملخصات تلقائية + أصوات تفاعلية + أنيميشن متقدم." : ""}
+
+### 🔐 بيانات دخول لوحتك (احفظها في مكان آمن!)
+- **الإيميل:** \`${adminEmail}\`
+- **كلمة السر:** \`${adminPassword}\`
+
+### ⏭️ الخطوات الجاية
+1. اختار باقتك من صفحة الأسعار (أو اتأكد منها).
+2. الأدمن هيكلمك على رقمك خلال ساعات.
+3. بعد استلام الفلوس، منصتك هتنشر على الرابط اللي فوق.
+4. ابدأ ترفع محتواك من لوحة المدرس!
+
+**كود تتبع طلبك:** \`${code}\`
+`.trim();
+}
+
 export default function Builder() {
   const [messages, setMessages] = useState<Msg[]>([
     {
@@ -79,6 +121,7 @@ export default function Builder() {
   const [loading, setLoading] = useState(false);
   const [finalConfig, setFinalConfig] = useState<AIConfig | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [createdPlatform, setCreatedPlatform] = useState<{ code: string; slug: string; summary: string } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -189,6 +232,8 @@ export default function Builder() {
       const code = genCode();
       const slug = slugify(finalConfig.platform_name || finalConfig.teacher_name);
       const template = getTemplateById(finalConfig.template_id);
+      const adminEmail = `${slug}@rootix.app`;
+      const adminPassword = "R" + Math.random().toString(36).slice(2, 8).toUpperCase();
       const fullConfig = {
         ...finalConfig,
         template,
@@ -213,10 +258,15 @@ export default function Builder() {
         package_price: finalConfig.package_price,
         config: fullConfig as any,
         status: "pending",
+        platform_admin_email: adminEmail,
+        platform_admin_password: adminPassword,
       });
       if (error) throw error;
-      toast.success("تم إنشاء المنصة! اختار باقتك دلوقتي 🎉");
-      setTimeout(() => navigate("/pricing?code=" + code), 1200);
+
+      // Build AI-style summary of how the platform works
+      const summary = buildPlatformSummary(finalConfig, template, code, slug, adminEmail, adminPassword);
+      setCreatedPlatform({ code, slug, summary });
+      toast.success("🎉 تم إنشاء منصتك!");
     } catch (e: any) {
       console.error(e);
       toast.error("فشل الإرسال: " + e.message);
@@ -281,12 +331,74 @@ export default function Builder() {
           <div ref={endRef} />
         </div>
 
-        {/* Final config summary */}
-        {finalConfig && (
+        {/* SUCCESS PREVIEW — after platform is created */}
+        {createdPlatform && finalConfig && (
+          <div className="mb-4 rounded-2xl border-2 border-primary/60 bg-gradient-to-br from-primary/10 via-card to-card p-5 md:p-7 fade-in-up shadow-[0_0_40px_hsl(var(--primary)/0.2)]">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-bold text-lg md:text-xl">معاينة المنصة بتاعت حضرتك</h2>
+                <p className="text-xs text-muted-foreground">كل حاجة جاهزة — اتفرج وجرّب قبل ما ترفع محتوى</p>
+              </div>
+            </div>
+
+            {/* Big action buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+              <a href={`/m/${createdPlatform.slug}`} target="_blank" rel="noreferrer" className="group rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 transition-all p-4 flex items-center gap-3 active:scale-[0.98]">
+                <div className="w-11 h-11 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition">
+                  <Eye className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm">شوف منصتك (الطلاب)</div>
+                  <div className="text-xs text-muted-foreground truncate">الواجهة اللي هيشوفها الطلاب</div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+              </a>
+              <a href={`/platform-admin/${createdPlatform.slug}`} target="_blank" rel="noreferrer" className="group rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 transition-all p-4 flex items-center gap-3 active:scale-[0.98]">
+                <div className="w-11 h-11 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition">
+                  <Settings className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm">ادخل لوحة المدرس</div>
+                  <div className="text-xs text-muted-foreground truncate">ترفع فيديوهات وامتحانات</div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+              </a>
+            </div>
+
+            {/* AI Summary (markdown-lite rendering) */}
+            <div className="rounded-xl bg-background/60 border border-border p-4 md:p-5 mb-5 text-sm leading-relaxed whitespace-pre-wrap max-h-[380px] overflow-y-auto">
+              {createdPlatform.summary.split("\n").map((line, i) => {
+                if (line.startsWith("### ")) return <h3 key={i} className="font-bold text-base mt-3 mb-1 text-primary">{line.slice(4)}</h3>;
+                if (line.startsWith("**") && line.endsWith("**")) return <div key={i} className="font-bold text-base mt-2">{line.replace(/\*\*/g, "")}</div>;
+                const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+                return (
+                  <div key={i}>
+                    {parts.map((part, j) => {
+                      if (part.startsWith("**") && part.endsWith("**")) return <strong key={j}>{part.slice(2, -2)}</strong>;
+                      if (part.startsWith("`") && part.endsWith("`")) return <code key={j} className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-xs font-mono">{part.slice(1, -1)}</code>;
+                      return <span key={j}>{part}</span>;
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
+            <Button onClick={() => navigate("/pricing?code=" + createdPlatform.code)} className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base">
+              <Rocket className="w-5 h-5 ml-2" />
+              اختار باقتك وابعتها للأدمن
+            </Button>
+          </div>
+        )}
+
+        {/* Final config summary (before submit) */}
+        {finalConfig && !createdPlatform && (
           <div className="mb-4 rounded-xl border border-primary/50 bg-primary/5 p-5 fade-in-up">
             <h3 className="font-semibold mb-3 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              ملخص منصتك
+              ملخص منصتك قبل الإنشاء
             </h3>
             <div className="grid grid-cols-2 gap-2 text-sm mb-4">
               <div><span className="text-muted-foreground">الاسم:</span> {finalConfig.platform_name}</div>
@@ -302,8 +414,8 @@ export default function Builder() {
                 {getTemplateById(finalConfig.template_id).name_ar}
               </div>
             </div>
-            <Button onClick={submitPlatform} disabled={submitting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "تأكيد الطلب وإرسال للأدمن"}
+            <Button onClick={submitPlatform} disabled={submitting} className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "✨ أنشئ المنصة دلوقتي"}
             </Button>
           </div>
         )}
@@ -315,7 +427,7 @@ export default function Builder() {
               <button
                 key={i}
                 onClick={() => send(s)}
-                className="text-sm px-3 py-1.5 rounded-full border border-border hover:border-primary hover:bg-primary/10 transition-colors"
+                className="text-sm px-3 py-1.5 rounded-full border border-border hover:border-primary hover:bg-primary/10 transition-colors active:scale-95"
               >
                 {s}
               </button>
@@ -330,16 +442,16 @@ export default function Builder() {
               e.preventDefault();
               send(input);
             }}
-            className="flex gap-2 sticky bottom-4 bg-background/80 backdrop-blur-xl rounded-xl border border-border p-2"
+            className="flex gap-2 sticky bottom-2 md:bottom-4 bg-background/90 backdrop-blur-xl rounded-xl border border-border p-2 shadow-lg"
           >
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="اكتب إجابتك..."
               disabled={loading}
-              className="border-0 bg-transparent focus-visible:ring-0"
+              className="border-0 bg-transparent focus-visible:ring-0 text-base"
             />
-            <Button type="submit" disabled={loading || !input.trim()} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Button type="submit" disabled={loading || !input.trim()} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </form>
