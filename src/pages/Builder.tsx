@@ -79,6 +79,7 @@ export default function Builder() {
   const [loading, setLoading] = useState(false);
   const [finalConfig, setFinalConfig] = useState<AIConfig | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [createdPlatform, setCreatedPlatform] = useState<{ code: string; slug: string; summary: string } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
