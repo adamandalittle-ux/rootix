@@ -155,13 +155,14 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           ...messages,
         ],
         tools: [SAVE_PLATFORM_TOOL],
         stream: true,
+        temperature: 0.4,
       }),
     });
 
