@@ -10,6 +10,7 @@ import Admin from "./pages/Admin.tsx";
 import Success from "./pages/Success.tsx";
 import PlatformPage from "./pages/PlatformPage.tsx";
 import PlatformAdmin from "./pages/PlatformAdmin.tsx";
+import Pricing from "./pages/Pricing.tsx";
 
 const queryClient = new QueryClient();
 
