@@ -190,6 +190,8 @@ export default function Builder() {
       const code = genCode();
       const slug = slugify(finalConfig.platform_name || finalConfig.teacher_name);
       const template = getTemplateById(finalConfig.template_id);
+      const adminEmail = `${slug}@rootix.app`;
+      const adminPassword = "R" + Math.random().toString(36).slice(2, 8).toUpperCase();
       const fullConfig = {
         ...finalConfig,
         template,
@@ -214,10 +216,15 @@ export default function Builder() {
         package_price: finalConfig.package_price,
         config: fullConfig as any,
         status: "pending",
+        platform_admin_email: adminEmail,
+        platform_admin_password: adminPassword,
       });
       if (error) throw error;
-      toast.success("تم إنشاء المنصة! اختار باقتك دلوقتي 🎉");
-      setTimeout(() => navigate("/pricing?code=" + code), 1200);
+
+      // Build AI-style summary of how the platform works
+      const summary = buildPlatformSummary(finalConfig, template, code, slug, adminEmail, adminPassword);
+      setCreatedPlatform({ code, slug, summary });
+      toast.success("🎉 تم إنشاء منصتك!");
     } catch (e: any) {
       console.error(e);
       toast.error("فشل الإرسال: " + e.message);
