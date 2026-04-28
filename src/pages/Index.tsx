@@ -150,6 +150,13 @@ const Index = () => {
             </div>
           ))}
         </div>
+        <div className="text-center mt-8">
+          <Link to="/pricing">
+            <Button size="lg" variant="outline" className="h-12 px-8">
+              شوف كل الباقات (15 باقة) ←
+            </Button>
+          </Link>
+        </div>
       </section>
 
       {/* CTA */}
