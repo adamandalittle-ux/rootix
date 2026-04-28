@@ -215,8 +215,8 @@ export default function Builder() {
         status: "pending",
       });
       if (error) throw error;
-      toast.success("تم إرسال طلبك! الكود: " + code);
-      setTimeout(() => navigate("/success?code=" + code + "&slug=" + slug), 1500);
+      toast.success("تم إنشاء المنصة! اختار باقتك دلوقتي 🎉");
+      setTimeout(() => navigate("/pricing?code=" + code), 1200);
     } catch (e: any) {
       console.error(e);
       toast.error("فشل الإرسال: " + e.message);
