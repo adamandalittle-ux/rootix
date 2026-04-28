@@ -15,6 +15,9 @@ const Index = () => {
             <span className="font-bold text-lg tracking-tight">ROOTIX</span>
           </Link>
           <div className="flex items-center gap-3">
+            <Link to="/pricing" className="hidden sm:block">
+              <Button variant="ghost" size="sm">الأسعار</Button>
+            </Link>
             <Link to="/admin">
               <Button variant="ghost" size="sm">لوحة الأدمن</Button>
             </Link>
@@ -146,6 +149,13 @@ const Index = () => {
               </ul>
             </div>
           ))}
+        </div>
+        <div className="text-center mt-8">
+          <Link to="/pricing">
+            <Button size="lg" variant="outline" className="h-12 px-8">
+              شوف كل الباقات (15 باقة) ←
+            </Button>
+          </Link>
         </div>
       </section>
 

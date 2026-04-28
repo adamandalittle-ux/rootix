@@ -39,6 +39,7 @@ export type Database = {
         Row: {
           created_at: string
           data: Json
+          file_url: string | null
           grade_level: string
           id: string
           kind: string
@@ -46,10 +47,12 @@ export type Database = {
           platform_id: string
           title: string
           unit: string | null
+          video_url: string | null
         }
         Insert: {
           created_at?: string
           data?: Json
+          file_url?: string | null
           grade_level: string
           id?: string
           kind: string
@@ -57,10 +60,12 @@ export type Database = {
           platform_id: string
           title: string
           unit?: string | null
+          video_url?: string | null
         }
         Update: {
           created_at?: string
           data?: Json
+          file_url?: string | null
           grade_level?: string
           id?: string
           kind?: string
@@ -68,6 +73,7 @@ export type Database = {
           platform_id?: string
           title?: string
           unit?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -148,6 +154,8 @@ export type Database = {
           payment_status: string
           platform_admin_email: string | null
           platform_admin_password: string | null
+          requested_students: number | null
+          requested_tier: string | null
           slug: string
           stage: string
           status: string
@@ -156,6 +164,7 @@ export type Database = {
           teacher_phone: string
           template_tier: string
           updated_at: string
+          upgrade_request: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -170,6 +179,8 @@ export type Database = {
           payment_status?: string
           platform_admin_email?: string | null
           platform_admin_password?: string | null
+          requested_students?: number | null
+          requested_tier?: string | null
           slug: string
           stage: string
           status?: string
@@ -178,6 +189,7 @@ export type Database = {
           teacher_phone: string
           template_tier?: string
           updated_at?: string
+          upgrade_request?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -192,6 +204,8 @@ export type Database = {
           payment_status?: string
           platform_admin_email?: string | null
           platform_admin_password?: string | null
+          requested_students?: number | null
+          requested_tier?: string | null
           slug?: string
           stage?: string
           status?: string
@@ -200,6 +214,7 @@ export type Database = {
           teacher_phone?: string
           template_tier?: string
           updated_at?: string
+          upgrade_request?: string | null
         }
         Relationships: []
       }
