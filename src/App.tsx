@@ -27,6 +27,7 @@ const App = () => (
           <Route path="/admin" element={<Admin />} />
           <Route path="/m/:slug" element={<PlatformPage />} />
           <Route path="/platform-admin/:slug" element={<PlatformAdmin />} />
+          <Route path="/pricing" element={<Pricing />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
