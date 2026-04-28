@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Send, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Loader2, Eye, Settings, CheckCircle2, ExternalLink, Rocket } from "lucide-react";
 import { getTemplateById, TEMPLATES } from "@/lib/templates";
 
 type Msg = { role: "user" | "assistant"; content: string };
