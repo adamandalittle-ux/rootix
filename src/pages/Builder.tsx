@@ -331,12 +331,74 @@ export default function Builder() {
           <div ref={endRef} />
         </div>
 
-        {/* Final config summary */}
-        {finalConfig && (
+        {/* SUCCESS PREVIEW — after platform is created */}
+        {createdPlatform && finalConfig && (
+          <div className="mb-4 rounded-2xl border-2 border-primary/60 bg-gradient-to-br from-primary/10 via-card to-card p-5 md:p-7 fade-in-up shadow-[0_0_40px_hsl(var(--primary)/0.2)]">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-bold text-lg md:text-xl">معاينة المنصة بتاعت حضرتك</h2>
+                <p className="text-xs text-muted-foreground">كل حاجة جاهزة — اتفرج وجرّب قبل ما ترفع محتوى</p>
+              </div>
+            </div>
+
+            {/* Big action buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+              <a href={`/m/${createdPlatform.slug}`} target="_blank" rel="noreferrer" className="group rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 transition-all p-4 flex items-center gap-3 active:scale-[0.98]">
+                <div className="w-11 h-11 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition">
+                  <Eye className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm">شوف منصتك (الطلاب)</div>
+                  <div className="text-xs text-muted-foreground truncate">الواجهة اللي هيشوفها الطلاب</div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+              </a>
+              <a href={`/platform-admin/${createdPlatform.slug}`} target="_blank" rel="noreferrer" className="group rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 transition-all p-4 flex items-center gap-3 active:scale-[0.98]">
+                <div className="w-11 h-11 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition">
+                  <Settings className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm">ادخل لوحة المدرس</div>
+                  <div className="text-xs text-muted-foreground truncate">ترفع فيديوهات وامتحانات</div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+              </a>
+            </div>
+
+            {/* AI Summary (markdown-lite rendering) */}
+            <div className="rounded-xl bg-background/60 border border-border p-4 md:p-5 mb-5 text-sm leading-relaxed whitespace-pre-wrap max-h-[380px] overflow-y-auto">
+              {createdPlatform.summary.split("\n").map((line, i) => {
+                if (line.startsWith("### ")) return <h3 key={i} className="font-bold text-base mt-3 mb-1 text-primary">{line.slice(4)}</h3>;
+                if (line.startsWith("**") && line.endsWith("**")) return <div key={i} className="font-bold text-base mt-2">{line.replace(/\*\*/g, "")}</div>;
+                const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+                return (
+                  <div key={i}>
+                    {parts.map((part, j) => {
+                      if (part.startsWith("**") && part.endsWith("**")) return <strong key={j}>{part.slice(2, -2)}</strong>;
+                      if (part.startsWith("`") && part.endsWith("`")) return <code key={j} className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-xs font-mono">{part.slice(1, -1)}</code>;
+                      return <span key={j}>{part}</span>;
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
+            <Button onClick={() => navigate("/pricing?code=" + createdPlatform.code)} className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base">
+              <Rocket className="w-5 h-5 ml-2" />
+              اختار باقتك وابعتها للأدمن
+            </Button>
+          </div>
+        )}
+
+        {/* Final config summary (before submit) */}
+        {finalConfig && !createdPlatform && (
           <div className="mb-4 rounded-xl border border-primary/50 bg-primary/5 p-5 fade-in-up">
             <h3 className="font-semibold mb-3 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              ملخص منصتك
+              ملخص منصتك قبل الإنشاء
             </h3>
             <div className="grid grid-cols-2 gap-2 text-sm mb-4">
               <div><span className="text-muted-foreground">الاسم:</span> {finalConfig.platform_name}</div>
@@ -352,8 +414,8 @@ export default function Builder() {
                 {getTemplateById(finalConfig.template_id).name_ar}
               </div>
             </div>
-            <Button onClick={submitPlatform} disabled={submitting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "تأكيد الطلب وإرسال للأدمن"}
+            <Button onClick={submitPlatform} disabled={submitting} className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "✨ أنشئ المنصة دلوقتي"}
             </Button>
           </div>
         )}
@@ -365,7 +427,7 @@ export default function Builder() {
               <button
                 key={i}
                 onClick={() => send(s)}
-                className="text-sm px-3 py-1.5 rounded-full border border-border hover:border-primary hover:bg-primary/10 transition-colors"
+                className="text-sm px-3 py-1.5 rounded-full border border-border hover:border-primary hover:bg-primary/10 transition-colors active:scale-95"
               >
                 {s}
               </button>
@@ -380,16 +442,16 @@ export default function Builder() {
               e.preventDefault();
               send(input);
             }}
-            className="flex gap-2 sticky bottom-4 bg-background/80 backdrop-blur-xl rounded-xl border border-border p-2"
+            className="flex gap-2 sticky bottom-2 md:bottom-4 bg-background/90 backdrop-blur-xl rounded-xl border border-border p-2 shadow-lg"
           >
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="اكتب إجابتك..."
               disabled={loading}
-              className="border-0 bg-transparent focus-visible:ring-0"
+              className="border-0 bg-transparent focus-visible:ring-0 text-base"
             />
-            <Button type="submit" disabled={loading || !input.trim()} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Button type="submit" disabled={loading || !input.trim()} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </form>
