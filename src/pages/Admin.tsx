@@ -485,6 +485,16 @@ export default function Admin() {
                         <Play className="w-4 h-4 ml-1" />تشغيل
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => runAiCheck(p.id)}
+                      disabled={checkingId === p.id}
+                      className="border-primary/50 text-primary hover:bg-primary/10"
+                    >
+                      {checkingId === p.id ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Sparkles className="w-4 h-4 ml-1" />}
+                      فحص بـ AI
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => deletePlatform(p.id)} className="text-destructive hover:text-destructive">
                       <Trash2 className="w-4 h-4" />
                     </Button>
