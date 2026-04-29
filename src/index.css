@@ -152,6 +152,9 @@
   .pulse-glow {
     animation: pulse-glow 2s infinite;
   }
+  .animate-pulse-glow {
+    animation: pulse-glow 2.5s infinite;
+  }
   @keyframes fade-in-up {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
