@@ -1,27 +1,24 @@
+// ROOTIX AI Builder v3 — clean flow: AI builds → preview → form → submit
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Send, Sparkles, Loader2, Eye, Settings, CheckCircle2, ExternalLink, Rocket } from "lucide-react";
-import { getTemplateById, TEMPLATES } from "@/lib/templates";
+import { ArrowLeft, Send, Sparkles, Loader2, Eye, Settings, CheckCircle2, ExternalLink, Rocket, Pencil, Phone, User, Package as PackageIcon } from "lucide-react";
+import { getTemplateById } from "@/lib/templates";
+import { PACKAGES, PRO_MULTIPLIER } from "@/lib/pricing";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-// Config coming from the AI via tool call
 interface AIConfig {
-  teacher_name: string;
-  teacher_phone: string;
   subject: string;
   stage: string;
   grade_levels: string[];
   platform_name: string;
+  slug: string;
   mood: string;
   template_id: string;
-  template_tier: "normal" | "pro";
-  package_students: number;
-  package_price: number;
 }
 
 function parseSuggestions(text: string): { clean: string; suggestions: string[] } {
@@ -36,7 +33,6 @@ function parseSuggestions(text: string): { clean: string; suggestions: string[] 
   }
 }
 
-// Tool-call accumulator for streamed function arguments
 function accumulateToolCall(delta: any, acc: { name?: string; args: string }) {
   const tc = delta?.tool_calls?.[0];
   if (!tc) return;
@@ -53,60 +49,51 @@ function tryParseToolConfig(acc: { name?: string; args: string }): AIConfig | nu
   }
 }
 
-function slugify(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .replace(/[^\w\u0600-\u06FF]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 40) + "-" + Math.random().toString(36).slice(2, 6)
-  );
+// English-only slug enforcement (transliterate Arabic if AI slipped)
+const AR_TO_EN: Record<string, string> = {
+  "ا":"a","أ":"a","إ":"e","آ":"a","ب":"b","ت":"t","ث":"th","ج":"g","ح":"h","خ":"kh",
+  "د":"d","ذ":"z","ر":"r","ز":"z","س":"s","ش":"sh","ص":"s","ض":"d","ط":"t","ظ":"z",
+  "ع":"a","غ":"gh","ف":"f","ق":"q","ك":"k","ل":"l","م":"m","ن":"n","ه":"h","و":"w","ي":"y","ى":"a","ة":"a","ئ":"e","ؤ":"o"," ":"-",
+};
+function forceEnglishSlug(input: string): string {
+  let s = (input || "").toLowerCase();
+  // transliterate any Arabic chars
+  s = s.split("").map((c) => AR_TO_EN[c] ?? c).join("");
+  // keep only a-z, 0-9, dashes
+  s = s.replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  if (!s || s.length < 2) s = "platform";
+  if (s.length > 35) s = s.slice(0, 35).replace(/-$/, "");
+  return s + "-" + Math.random().toString(36).slice(2, 5);
 }
 
 function genCode(): string {
   return "R-" + Math.floor(1000 + Math.random() * 9000);
 }
 
-function buildPlatformSummary(cfg: AIConfig, tpl: any, code: string, slug: string, adminEmail: string, adminPassword: string): string {
+function buildSummary(cfg: AIConfig, tpl: any, code: string): string {
   const subjectAr: Record<string, string> = {
     math: "الرياضيات", science: "العلوم", arabic: "اللغة العربية", english: "اللغة الإنجليزية",
     studies: "الدراسات", physics: "الفيزياء", chemistry: "الكيمياء", biology: "الأحياء", french: "الفرنساوي",
   };
   const stageAr: Record<string, string> = { primary: "الابتدائي", prep: "الإعدادي", secondary: "الثانوي" };
-  const isPro = cfg.template_tier === "pro";
-  return `
-**🎉 تمام يا ${cfg.teacher_name}، منصتك جاهزة!**
+  return `**🎉 منصة "${cfg.platform_name}" جاهزة!**
 
-دي كل التفاصيل اللي جهزتها لحضرتك:
-
-### 📚 عن المنصة
-- **الاسم:** ${cfg.platform_name}
+دي تفاصيل المنصة:
 - **المادة:** ${subjectAr[cfg.subject] || cfg.subject}
 - **المرحلة:** ${stageAr[cfg.stage] || cfg.stage}
 - **الصفوف:** ${cfg.grade_levels.join("، ")}
-- **التصميم:** ${tpl.name_ar} (${tpl.mood === "luxury" ? "فخم" : tpl.mood === "tech" ? "تقني" : tpl.mood === "calm" ? "هادي" : tpl.mood === "warm" ? "دافي" : "عصري"})
-- **الباقة:** ${cfg.package_students} طالب — ${cfg.package_price} ج/شهر (${isPro ? "PRO ⭐" : "عادي"})
+- **التصميم:** ${tpl.name_ar}
+- **الرابط:** \`rootix.app/m/${cfg.slug}\`
 
-### 🚀 ازاي المنصة بتشغل؟
-1. **رابط منصتك الخاص:** \`rootix.app/m/${slug}\` — ده اللي بتديه لطلابك.
-2. **لوحة تحكم حضرتك:** \`rootix.app/platform-admin/${slug}\` — من هنا بترفع فيديوهات، ملفات PDF، امتحانات، وتدير الطلاب.
-3. **الطلاب بيدخلوا إزاي؟** بتديهم كود (حضرتك بتعمله من لوحتك) + رقم تليفونهم. كل كود يستخدمه طالب واحد بس.
-4. **الحماية:** كل فيديو بيظهر فيه اسم الطالب ورقمه متحرك على الشاشة — لو حد صوّر، هتعرف مين.
-5. **المحتوى:** فيديوهات (رفع مباشر أو YouTube), ملفات PDF، امتحانات بأسئلة اختيار من متعدد، وتقرير بدرجات كل طالب.
-${isPro ? "6. **مميزات PRO:** مساعد AI للطلاب يشرحلهم الدروس + ملخصات تلقائية + أصوات تفاعلية + أنيميشن متقدم." : ""}
+### 🚀 ازاي بتشتغل؟
+1. **رابط طلابك:** \`rootix.app/m/${cfg.slug}\` — ده اللي بتديه لطلابك.
+2. **لوحة تحكم حضرتك:** بتدير منها الفيديوهات + PDF + الامتحانات + الطلاب.
+3. **حماية:** كل فيديو عليه علامة مائية متحركة باسم الطالب ورقمه — مفيش تسريب.
+4. **أكواد الطلاب:** بتعمل أكواد، تديها للطلاب، كل كود يدخل بيه طالب واحد بس.
+5. **امتحانات:** بتعمل اختبارات multiple choice وتشوف درجة كل طالب فوراً.
+6. **كله Realtime:** أي تعديل بتعمله بيظهر لطلابك في نفس اللحظة.
 
-### 🔐 بيانات دخول لوحتك (احفظها في مكان آمن!)
-- **الإيميل:** \`${adminEmail}\`
-- **كلمة السر:** \`${adminPassword}\`
-
-### ⏭️ الخطوات الجاية
-1. اختار باقتك من صفحة الأسعار (أو اتأكد منها).
-2. الأدمن هيكلمك على رقمك خلال ساعات.
-3. بعد استلام الفلوس، منصتك هتنشر على الرابط اللي فوق.
-4. ابدأ ترفع محتواك من لوحة المدرس!
-
-**كود تتبع طلبك:** \`${code}\`
-`.trim();
+**كود تتبع طلبك:** \`${code}\``;
 }
 
 export default function Builder() {
@@ -114,14 +101,22 @@ export default function Builder() {
     {
       role: "assistant",
       content:
-        "أهلاً بيك في ROOTIX! 👋 أنا هبنيلك منصتك التعليمية خطوة بخطوة. هسألك 20 سؤال بسيط علشان أفهم كل حاجة عايزها.\n\nنبدأ؟ اكتب 'ابدأ' أو قولي اسمك كمدرس مباشرة.\n\nSUGGESTIONS: [\"ابدأ\",\"مستر أحمد أحمد\",\"ميس سارة محمد\"]",
+        "أهلاً يا باشا! 👋 أنا ROOTIX AI، هبنيلك منصتك التعليمية في 6 أسئلة بس.\n\nخليني أبدأ معاك — بتدرس أنهي مادة؟\n\nSUGGESTIONS: [\"رياضيات\",\"علوم\",\"عربي\",\"إنجليزي\",\"فيزياء\",\"كيمياء\"]",
     },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [finalConfig, setFinalConfig] = useState<AIConfig | null>(null);
+  const [aiConfig, setAiConfig] = useState<AIConfig | null>(null);
+  const [createdPlatform, setCreatedPlatform] = useState<{ code: string; slug: string; summary: string; id: string } | null>(null);
+  const [stage, setStage] = useState<"chat" | "preview" | "form">("chat");
   const [submitting, setSubmitting] = useState(false);
-  const [createdPlatform, setCreatedPlatform] = useState<{ code: string; slug: string; summary: string } | null>(null);
+
+  // Final form data
+  const [teacherName, setTeacherName] = useState("");
+  const [teacherPhone, setTeacherPhone] = useState("");
+  const [tier, setTier] = useState<"normal" | "pro">("normal");
+  const [pkgIdx, setPkgIdx] = useState(0); // index in PACKAGES
+
   const endRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -138,7 +133,6 @@ export default function Builder() {
     setInput("");
     setLoading(true);
 
-    // Stream assistant response + tool call
     let assistantSoFar = "";
     const toolAcc = { name: undefined as string | undefined, args: "" };
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
@@ -155,7 +149,7 @@ export default function Builder() {
       });
 
       if (!resp.ok || !resp.body) {
-        if (resp.status === 429) toast.error("تم تجاوز الحد المسموح، حاول بعد قليل");
+        if (resp.status === 429) toast.error("تم تجاوز الحد المسموح، جرب بعد شوية");
         else if (resp.status === 402) toast.error("الرصيد نفد");
         else toast.error("حصل خطأ، حاول تاني");
         setMessages(newHistory);
@@ -180,10 +174,7 @@ export default function Builder() {
           if (line.startsWith(":") || line.trim() === "") continue;
           if (!line.startsWith("data: ")) continue;
           const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") {
-            streamDone = true;
-            break;
-          }
+          if (jsonStr === "[DONE]") { streamDone = true; break; }
           try {
             const parsed = JSON.parse(jsonStr);
             const delta = parsed.choices?.[0]?.delta;
@@ -204,15 +195,19 @@ export default function Builder() {
         }
       }
 
-      // Check if AI called the save_platform_config tool
       const cfg = tryParseToolConfig(toolAcc);
       if (cfg) {
-        setFinalConfig(cfg);
+        // Force English slug — never trust AI 100%
+        cfg.slug = forceEnglishSlug(cfg.slug || cfg.platform_name);
+        setAiConfig(cfg);
+        setStage("preview");
+        // Auto-create platform draft so preview links work
+        await createDraft(cfg);
         setMessages((prev) => {
           const copy = [...prev];
           copy[copy.length - 1] = {
             role: "assistant",
-            content: "✅ تمام! جهزت كل تفاصيل منصتك. راجع الملخص تحت واضغط تأكيد.",
+            content: `✅ خلصنا! منصة "${cfg.platform_name}" جاهزة. اتفرج عليها تحت 👇`,
           };
           return copy;
         });
@@ -225,48 +220,91 @@ export default function Builder() {
     }
   };
 
-  const submitPlatform = async () => {
-    if (!finalConfig) return;
+  const createDraft = async (cfg: AIConfig) => {
+    const code = genCode();
+    const template = getTemplateById(cfg.template_id);
+    const fullConfig = {
+      ...cfg,
+      template,
+      template_id: cfg.template_id,
+      logo_text: cfg.platform_name.charAt(0),
+      welcome_message: `أهلاً بيك في ${cfg.platform_name} 🎉`,
+      videos_label: "الفيديوهات",
+      exams_label: "الامتحانات",
+      primary_color: template.primary_color,
+      accent_color: template.accent_color,
+    };
+    const { data, error } = await supabase.from("platforms").insert({
+      code,
+      slug: cfg.slug,
+      teacher_name: "(لم يكتمل)",
+      teacher_phone: "(لم يكتمل)",
+      subject: cfg.subject,
+      stage: cfg.stage,
+      grade_levels: cfg.grade_levels,
+      template_tier: "normal",
+      package_students: 50,
+      package_price: 500,
+      config: fullConfig as any,
+      status: "approved", // approved so /m/:slug renders the preview
+      payment_status: "draft",
+    }).select().maybeSingle();
+    if (error) {
+      console.error(error);
+      toast.error("فشل إنشاء المعاينة: " + error.message);
+      return;
+    }
+    const summary = buildSummary(cfg, template, code);
+    setCreatedPlatform({ code, slug: cfg.slug, summary, id: (data as any).id });
+  };
+
+  const editWithAI = () => {
+    setStage("chat");
+    setAiConfig(null);
+    setCreatedPlatform(null);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: "تمام! قولي إنت عايز تعدل إيه بالظبط؟ (التصميم؟ الاسم؟ المادة؟)\n\nSUGGESTIONS: [\"غير التصميم\",\"غير اسم المنصة\",\"غير المادة\",\"غير الصفوف\"]",
+      },
+    ]);
+  };
+
+  const submitFinal = async () => {
+    if (!aiConfig || !createdPlatform) return;
+    if (!teacherName.trim() || !teacherPhone.trim()) {
+      toast.error("اكتب اسمك ورقم تليفونك");
+      return;
+    }
+    if (teacherPhone.replace(/\D/g, "").length < 10) {
+      toast.error("رقم التليفون مش صحيح");
+      return;
+    }
     setSubmitting(true);
     try {
-      const code = genCode();
-      const slug = slugify(finalConfig.platform_name || finalConfig.teacher_name);
-      const template = getTemplateById(finalConfig.template_id);
-      const adminEmail = `${slug}@rootix.app`;
+      const pkg = PACKAGES[pkgIdx];
+      const finalPrice = tier === "pro" ? Math.round(pkg.price * PRO_MULTIPLIER) : pkg.price;
+      const adminEmail = `${aiConfig.slug}@rootix.app`;
       const adminPassword = "R" + Math.random().toString(36).slice(2, 8).toUpperCase();
-      const fullConfig = {
-        ...finalConfig,
-        template,
-        logo_text: finalConfig.platform_name.charAt(0),
-        welcome_message: `أهلاً بيك في ${finalConfig.platform_name} 🎉`,
-        codes_count: 100,
-        videos_label: "الفيديوهات",
-        exams_label: "الامتحانات",
-        sounds_enabled: finalConfig.template_tier === "pro",
-        ai_summary_enabled: finalConfig.template_tier === "pro",
-      };
-      const { error } = await supabase.from("platforms").insert({
-        code,
-        slug,
-        teacher_name: finalConfig.teacher_name,
-        teacher_phone: finalConfig.teacher_phone,
-        subject: finalConfig.subject,
-        stage: finalConfig.stage,
-        grade_levels: finalConfig.grade_levels,
-        template_tier: finalConfig.template_tier,
-        package_students: finalConfig.package_students,
-        package_price: finalConfig.package_price,
-        config: fullConfig as any,
-        status: "pending",
+
+      const { error } = await supabase.from("platforms").update({
+        teacher_name: teacherName.trim(),
+        teacher_phone: teacherPhone.trim(),
+        template_tier: tier,
+        package_students: pkg.students,
+        package_price: finalPrice,
         platform_admin_email: adminEmail,
         platform_admin_password: adminPassword,
-      });
-      if (error) throw error;
+        status: "pending", // now waiting for admin approval
+        payment_status: "unpaid",
+        requested_students: pkg.students,
+        requested_tier: tier,
+      }).eq("id", createdPlatform.id);
 
-      // Build AI-style summary of how the platform works
-      const summary = buildPlatformSummary(finalConfig, template, code, slug, adminEmail, adminPassword);
-      setCreatedPlatform({ code, slug, summary });
-      toast.success("🎉 تم إنشاء منصتك!");
+      if (error) throw error;
+      toast.success("🎉 تم إرسال طلبك للأدمن! هيكلمك خلال ساعات.");
+      navigate(`/success?code=${createdPlatform.code}`);
     } catch (e: any) {
       console.error(e);
       toast.error("فشل الإرسال: " + e.message);
@@ -276,7 +314,7 @@ export default function Builder() {
   };
 
   const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-  const { clean, suggestions } = lastAssistant ? parseSuggestions(lastAssistant.content) : { clean: "", suggestions: [] };
+  const { suggestions } = lastAssistant ? parseSuggestions(lastAssistant.content) : { suggestions: [] };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -299,15 +337,11 @@ export default function Builder() {
           {messages.map((m, i) => {
             const isLast = i === messages.length - 1;
             const { clean: cleanText } = parseSuggestions(m.content);
-            const displayContent = cleanText;
-
             return (
               <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"} fade-in-up`}>
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-3 whitespace-pre-wrap leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card border border-border"
+                    m.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border border-border"
                   }`}
                 >
                   {m.role === "assistant" && (
@@ -316,7 +350,7 @@ export default function Builder() {
                       ROOTIX AI
                     </div>
                   )}
-                  {displayContent || (isLast && loading && <Loader2 className="w-4 h-4 animate-spin" />)}
+                  {cleanText || (isLast && loading && <Loader2 className="w-4 h-4 animate-spin" />)}
                 </div>
               </div>
             );
@@ -331,20 +365,20 @@ export default function Builder() {
           <div ref={endRef} />
         </div>
 
-        {/* SUCCESS PREVIEW — after platform is created */}
-        {createdPlatform && finalConfig && (
+        {/* PREVIEW STAGE — after AI builds */}
+        {stage === "preview" && createdPlatform && aiConfig && (
           <div className="mb-4 rounded-2xl border-2 border-primary/60 bg-gradient-to-br from-primary/10 via-card to-card p-5 md:p-7 fade-in-up shadow-[0_0_40px_hsl(var(--primary)/0.2)]">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
                 <CheckCircle2 className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h2 className="font-bold text-lg md:text-xl">معاينة المنصة بتاعت حضرتك</h2>
-                <p className="text-xs text-muted-foreground">كل حاجة جاهزة — اتفرج وجرّب قبل ما ترفع محتوى</p>
+                <h2 className="font-bold text-lg md:text-xl">معاينة منصتك</h2>
+                <p className="text-xs text-muted-foreground">اتفرج عليها قبل ما تكمل</p>
               </div>
             </div>
 
-            {/* Big action buttons */}
+            {/* Big preview buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               <a href={`/m/${createdPlatform.slug}`} target="_blank" rel="noreferrer" className="group rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 transition-all p-4 flex items-center gap-3 active:scale-[0.98]">
                 <div className="w-11 h-11 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition">
@@ -352,7 +386,7 @@ export default function Builder() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-sm">شوف منصتك (الطلاب)</div>
-                  <div className="text-xs text-muted-foreground truncate">الواجهة اللي هيشوفها الطلاب</div>
+                  <div className="text-xs text-muted-foreground truncate">/m/{createdPlatform.slug}</div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-muted-foreground" />
               </a>
@@ -361,15 +395,15 @@ export default function Builder() {
                   <Settings className="w-5 h-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm">ادخل لوحة المدرس</div>
+                  <div className="font-semibold text-sm">لوحة تحكم حضرتك</div>
                   <div className="text-xs text-muted-foreground truncate">ترفع فيديوهات وامتحانات</div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-muted-foreground" />
               </a>
             </div>
 
-            {/* AI Summary (markdown-lite rendering) */}
-            <div className="rounded-xl bg-background/60 border border-border p-4 md:p-5 mb-5 text-sm leading-relaxed whitespace-pre-wrap max-h-[380px] overflow-y-auto">
+            {/* Summary */}
+            <div className="rounded-xl bg-background/60 border border-border p-4 md:p-5 mb-5 text-sm leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto">
               {createdPlatform.summary.split("\n").map((line, i) => {
                 if (line.startsWith("### ")) return <h3 key={i} className="font-bold text-base mt-3 mb-1 text-primary">{line.slice(4)}</h3>;
                 if (line.startsWith("**") && line.endsWith("**")) return <div key={i} className="font-bold text-base mt-2">{line.replace(/\*\*/g, "")}</div>;
@@ -386,71 +420,96 @@ export default function Builder() {
               })}
             </div>
 
-            <Button onClick={() => navigate("/pricing?code=" + createdPlatform.code)} className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base">
-              <Rocket className="w-5 h-5 ml-2" />
-              اختار باقتك وابعتها للأدمن
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button onClick={editWithAI} variant="outline" className="h-12 font-semibold border-border">
+                <Pencil className="w-4 h-4 ml-2" />
+                عدّل مع AI
+              </Button>
+              <Button onClick={() => setStage("form")} className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
+                <Rocket className="w-4 h-4 ml-2" />
+                تمام، كمل
+              </Button>
+            </div>
           </div>
         )}
 
-        {/* Final config summary (before submit) */}
-        {finalConfig && !createdPlatform && (
-          <div className="mb-4 rounded-xl border border-primary/50 bg-primary/5 p-5 fade-in-up">
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              ملخص منصتك قبل الإنشاء
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-              <div><span className="text-muted-foreground">الاسم:</span> {finalConfig.platform_name}</div>
-              <div><span className="text-muted-foreground">المدرس:</span> {finalConfig.teacher_name}</div>
-              <div><span className="text-muted-foreground">المادة:</span> {finalConfig.subject}</div>
-              <div><span className="text-muted-foreground">المرحلة:</span> {finalConfig.stage}</div>
-              <div><span className="text-muted-foreground">الباقة:</span> {finalConfig.package_students} طالب</div>
-              <div><span className="text-muted-foreground">السعر:</span> {finalConfig.package_price} ج / شهر</div>
-              <div><span className="text-muted-foreground">النوع:</span> {finalConfig.template_tier.toUpperCase()}</div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">القالب:</span>
-                <span className="w-4 h-4 rounded" style={{ backgroundColor: getTemplateById(finalConfig.template_id).primary_color }} />
-                {getTemplateById(finalConfig.template_id).name_ar}
+        {/* FORM STAGE — name + phone + package */}
+        {stage === "form" && aiConfig && createdPlatform && (
+          <div className="mb-4 rounded-2xl border-2 border-primary/60 bg-card p-5 md:p-7 fade-in-up">
+            <h2 className="font-bold text-xl mb-1">آخر خطوة 🚀</h2>
+            <p className="text-sm text-muted-foreground mb-5">املا بياناتك واختار باقتك علشان الأدمن يكلمك</p>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-sm font-medium mb-1.5 flex items-center gap-1.5"><User className="w-4 h-4 text-primary" /> اسمك بالكامل</label>
+                <Input value={teacherName} onChange={(e) => setTeacherName(e.target.value)} placeholder="مثال: مستر أحمد محمد" className="h-11" />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 flex items-center gap-1.5"><Phone className="w-4 h-4 text-primary" /> رقم واتسابك</label>
+                <Input value={teacherPhone} onChange={(e) => setTeacherPhone(e.target.value)} placeholder="01xxxxxxxxx" type="tel" className="h-11" dir="ltr" />
               </div>
             </div>
-            <Button onClick={submitPlatform} disabled={submitting} className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "✨ أنشئ المنصة دلوقتي"}
-            </Button>
+
+            {/* Tier toggle */}
+            <div className="mb-4">
+              <label className="text-sm font-medium mb-2 flex items-center gap-1.5"><PackageIcon className="w-4 h-4 text-primary" /> نوع الباقة</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setTier("normal")} className={`rounded-xl border-2 p-3 text-start transition-all ${tier === "normal" ? "border-primary bg-primary/10" : "border-border bg-card hover:border-border/80"}`}>
+                  <div className="font-bold">عادي</div>
+                  <div className="text-xs text-muted-foreground">فيديو + PDF + امتحانات + علامة مائية</div>
+                </button>
+                <button onClick={() => setTier("pro")} className={`rounded-xl border-2 p-3 text-start transition-all ${tier === "pro" ? "border-primary bg-primary/10" : "border-border bg-card hover:border-border/80"}`}>
+                  <div className="font-bold">PRO ⭐ <span className="text-xs text-muted-foreground">(+15%)</span></div>
+                  <div className="text-xs text-muted-foreground">+ ملخصات AI + أصوات + أنيميشن متقدم</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Package picker */}
+            <div className="mb-6">
+              <label className="text-sm font-medium mb-2 block">عدد الطلاب</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[260px] overflow-y-auto p-1">
+                {PACKAGES.map((p, i) => {
+                  const price = tier === "pro" ? Math.round(p.price * PRO_MULTIPLIER) : p.price;
+                  const active = pkgIdx === i;
+                  return (
+                    <button key={i} onClick={() => setPkgIdx(i)} className={`rounded-lg border-2 p-2.5 text-center transition-all ${active ? "border-primary bg-primary/10" : "border-border bg-card hover:border-border/80"}`}>
+                      <div className="font-bold text-sm">{p.students}+ طالب</div>
+                      <div className={`text-xs ${active ? "text-primary font-semibold" : "text-muted-foreground"}`}>{price} ج/شهر</div>
+                      {p.label && <div className="text-[10px] text-primary mt-0.5">{p.label}</div>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button onClick={() => setStage("preview")} variant="outline" className="h-12 font-semibold">
+                <ArrowLeft className="w-4 h-4 ml-2" />
+                ارجع للمعاينة
+              </Button>
+              <Button onClick={submitFinal} disabled={submitting} className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Rocket className="w-5 h-5 ml-2" />ابعت للأدمن</>}
+              </Button>
+            </div>
           </div>
         )}
 
-        {/* Suggestions */}
-        {!finalConfig && suggestions.length > 0 && !loading && (
+        {/* Suggestions (chat stage only) */}
+        {stage === "chat" && suggestions.length > 0 && !loading && (
           <div className="flex flex-wrap gap-2 mb-3">
             {suggestions.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => send(s)}
-                className="text-sm px-3 py-1.5 rounded-full border border-border hover:border-primary hover:bg-primary/10 transition-colors active:scale-95"
-              >
+              <button key={i} onClick={() => send(s)} className="text-sm px-3 py-1.5 rounded-full border border-border hover:border-primary hover:bg-primary/10 transition-colors active:scale-95">
                 {s}
               </button>
             ))}
           </div>
         )}
 
-        {/* Input */}
-        {!finalConfig && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="flex gap-2 sticky bottom-2 md:bottom-4 bg-background/90 backdrop-blur-xl rounded-xl border border-border p-2 shadow-lg"
-          >
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="اكتب إجابتك..."
-              disabled={loading}
-              className="border-0 bg-transparent focus-visible:ring-0 text-base"
-            />
+        {/* Input (chat stage only) */}
+        {stage === "chat" && (
+          <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex gap-2 sticky bottom-2 md:bottom-4 bg-background/90 backdrop-blur-xl rounded-xl border border-border p-2 shadow-lg">
+            <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="اكتب إجابتك..." disabled={loading} className="border-0 bg-transparent focus-visible:ring-0 text-base" />
             <Button type="submit" disabled={loading || !input.trim()} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>

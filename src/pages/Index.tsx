@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Zap, Shield, Users, ArrowLeft, Check, Star } from "lucide-react";
+// Star kept for features grid below
 
 const Index = () => {
   return (
@@ -15,12 +16,6 @@ const Index = () => {
             <span className="font-bold text-lg tracking-tight">ROOTIX</span>
           </Link>
           <div className="flex items-center gap-3">
-            <Link to="/pricing" className="hidden sm:block">
-              <Button variant="ghost" size="sm">الأسعار</Button>
-            </Link>
-            <Link to="/admin">
-              <Button variant="ghost" size="sm">لوحة الأدمن</Button>
-            </Link>
             <Link to="/builder">
               <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
                 ابدأ الآن
@@ -114,50 +109,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Pricing preview */}
-      <section className="container mx-auto px-6 py-20">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">باقات واضحة، بدون مفاجآت</h2>
-          <p className="text-muted-foreground">اختار عدد الطلاب واللي يناسبك</p>
-        </div>
-        <div className="grid md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-          {[
-            { name: "باقة البداية", students: 50, normal: 500, pro: 600 },
-            { name: "الأكثر طلباً", students: 200, normal: 1950, pro: 2100, popular: true },
-            { name: "الأعلى", students: 1000, normal: 7150, pro: 8700 },
-          ].map((p, i) => (
-            <div
-              key={i}
-              className={`relative rounded-xl border ${p.popular ? "border-primary bg-primary/5" : "border-border bg-card"} p-6`}
-            >
-              {p.popular && (
-                <div className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-                  الأكثر طلباً
-                </div>
-              )}
-              <h3 className="font-semibold text-lg mb-1">{p.name}</h3>
-              <div className="text-3xl font-bold mb-1">{p.students} <span className="text-sm font-normal text-muted-foreground">طالب</span></div>
-              <div className="text-sm text-muted-foreground mb-4">
-                من <span className="text-foreground font-semibold">{p.normal} ج</span> شهرياً (عادي)
-                <br />
-                أو <span className="text-foreground font-semibold">{p.pro} ج</span> شهرياً (PRO)
-              </div>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-primary" /> تسجيل طلاب بالأكواد</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-primary" /> فيديوهات + PDF + امتحانات</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-primary" /> علامة مائية ديناميكية</li>
-              </ul>
-            </div>
-          ))}
-        </div>
-        <div className="text-center mt-8">
-          <Link to="/pricing">
-            <Button size="lg" variant="outline" className="h-12 px-8">
-              شوف كل الباقات (15 باقة) ←
-            </Button>
-          </Link>
-        </div>
-      </section>
+      {/* Pricing preview removed — pricing shown only after AI builds the platform */}
 
       {/* CTA */}
       <section className="container mx-auto px-6 py-20">
