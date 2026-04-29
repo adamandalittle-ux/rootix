@@ -43,6 +43,8 @@ export default function Admin() {
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "paused" | "alerts">("pending");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [checkResults, setCheckResults] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (localStorage.getItem("rootix_admin") === "1") setLoggedIn(true);
@@ -52,9 +54,39 @@ export default function Admin() {
     if (!loggedIn) return;
     load();
 
+    // Track seen platform IDs to detect new arrivals
+    const seenIds = new Set<string>();
+
     const channel = supabase
-      .channel("admin-platforms-v2")
-      .on("postgres_changes", { event: "*", schema: "public", table: "platforms" }, () => load())
+      .channel("admin-platforms-v3")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "platforms" }, (payload: any) => {
+        const newP = payload.new;
+        if (newP && !seenIds.has(newP.id)) {
+          seenIds.add(newP.id);
+          // Skip drafts (status='approved' and payment_status='draft')
+          if (newP.payment_status !== "draft") {
+            playNotificationSound();
+            toast.success(`🔔 طلب جديد من ${newP.teacher_name || "مدرس"}!`, {
+              description: `${newP.config?.platform_name || "منصة جديدة"} — ${newP.teacher_phone || ""}`,
+              duration: 8000,
+            });
+          }
+        }
+        load();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "platforms" }, (payload: any) => {
+        const oldP = payload.old;
+        const newP = payload.new;
+        // Detect draft → pending transition (real new request)
+        if (oldP?.payment_status === "draft" && newP?.payment_status === "unpaid" && newP?.status === "pending") {
+          playNotificationSound();
+          toast.success(`🔔 طلب جديد من ${newP.teacher_name}!`, {
+            description: `${newP.config?.platform_name || "منصة جديدة"} — ${newP.teacher_phone}`,
+            duration: 8000,
+          });
+        }
+        load();
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "students" }, () => loadStudentCounts())
       .subscribe();
 
@@ -62,6 +94,45 @@ export default function Admin() {
       supabase.removeChannel(channel);
     };
   }, [loggedIn]);
+
+  const playNotificationSound = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const runAiCheck = async (platformId: string) => {
+    setCheckingId(platformId);
+    try {
+      const { data, error } = await supabase.functions.invoke("rootix-check", {
+        body: { platform_id: platformId },
+      });
+      if (error) throw error;
+      setCheckResults((prev) => ({ ...prev, [platformId]: data }));
+      if (data.fixes_applied?.length) {
+        toast.success(`🛠️ AI أصلح ${data.fixes_applied.length} مشكلة`);
+      } else if (data.ok) {
+        toast.success("✅ المنصة سليمة 100%");
+      } else {
+        toast.error(`⚠️ ${data.issues.length} مشكلة محتاجة مراجعة`);
+      }
+    } catch (e: any) {
+      toast.error("فشل الفحص: " + e.message);
+    } finally {
+      setCheckingId(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
