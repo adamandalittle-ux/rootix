@@ -288,6 +288,20 @@ export default function Builder() {
       const adminEmail = `${aiConfig.slug}@rootix.app`;
       const adminPassword = "R" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
+      // Step 1: AI health check (auto-fix any issues before sending to admin)
+      toast.info("🔍 ROOTIX AI بيفحص منصتك...");
+      const checkResp = await supabase.functions.invoke("rootix-check", {
+        body: { platform_id: createdPlatform.id },
+      });
+      if (checkResp.data?.summary) {
+        if (checkResp.data.fixes_applied?.length) {
+          toast.success(`🛠️ AI أصلح ${checkResp.data.fixes_applied.length} مشكلة تلقائياً`);
+        } else {
+          toast.success("✅ AI فحص المنصة — كل حاجة تمام!");
+        }
+      }
+
+      // Step 2: Submit final teacher data + package
       const { error } = await supabase.from("platforms").update({
         teacher_name: teacherName.trim(),
         teacher_phone: teacherPhone.trim(),
@@ -296,15 +310,16 @@ export default function Builder() {
         package_price: finalPrice,
         platform_admin_email: adminEmail,
         platform_admin_password: adminPassword,
-        status: "pending", // now waiting for admin approval
+        status: "pending",
         payment_status: "unpaid",
         requested_students: pkg.students,
         requested_tier: tier,
+        admin_notes: checkResp.data?.summary || null,
       }).eq("id", createdPlatform.id);
 
       if (error) throw error;
       toast.success("🎉 تم إرسال طلبك للأدمن! هيكلمك خلال ساعات.");
-      navigate(`/success?code=${createdPlatform.code}`);
+      navigate(`/success?code=${createdPlatform.code}&slug=${aiConfig.slug}`);
     } catch (e: any) {
       console.error(e);
       toast.error("فشل الإرسال: " + e.message);

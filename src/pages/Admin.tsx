@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { LogOut, Users, CheckCircle, XCircle, Pause, Play, ArrowLeft, Phone, Calendar, AlertTriangle, TrendingUp, Eye, Trash2, Search, Copy, ExternalLink } from "lucide-react";
+import { LogOut, Users, CheckCircle, XCircle, Pause, Play, ArrowLeft, Phone, Calendar, AlertTriangle, TrendingUp, Eye, Trash2, Search, Copy, ExternalLink, Sparkles, Bell, Loader2 } from "lucide-react";
 
 interface Platform {
   id: string;
@@ -43,6 +43,8 @@ export default function Admin() {
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "paused" | "alerts">("pending");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [checkResults, setCheckResults] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (localStorage.getItem("rootix_admin") === "1") setLoggedIn(true);
@@ -52,9 +54,39 @@ export default function Admin() {
     if (!loggedIn) return;
     load();
 
+    // Track seen platform IDs to detect new arrivals
+    const seenIds = new Set<string>();
+
     const channel = supabase
-      .channel("admin-platforms-v2")
-      .on("postgres_changes", { event: "*", schema: "public", table: "platforms" }, () => load())
+      .channel("admin-platforms-v3")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "platforms" }, (payload: any) => {
+        const newP = payload.new;
+        if (newP && !seenIds.has(newP.id)) {
+          seenIds.add(newP.id);
+          // Skip drafts (status='approved' and payment_status='draft')
+          if (newP.payment_status !== "draft") {
+            playNotificationSound();
+            toast.success(`🔔 طلب جديد من ${newP.teacher_name || "مدرس"}!`, {
+              description: `${newP.config?.platform_name || "منصة جديدة"} — ${newP.teacher_phone || ""}`,
+              duration: 8000,
+            });
+          }
+        }
+        load();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "platforms" }, (payload: any) => {
+        const oldP = payload.old;
+        const newP = payload.new;
+        // Detect draft → pending transition (real new request)
+        if (oldP?.payment_status === "draft" && newP?.payment_status === "unpaid" && newP?.status === "pending") {
+          playNotificationSound();
+          toast.success(`🔔 طلب جديد من ${newP.teacher_name}!`, {
+            description: `${newP.config?.platform_name || "منصة جديدة"} — ${newP.teacher_phone}`,
+            duration: 8000,
+          });
+        }
+        load();
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "students" }, () => loadStudentCounts())
       .subscribe();
 
@@ -62,6 +94,45 @@ export default function Admin() {
       supabase.removeChannel(channel);
     };
   }, [loggedIn]);
+
+  const playNotificationSound = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const runAiCheck = async (platformId: string) => {
+    setCheckingId(platformId);
+    try {
+      const { data, error } = await supabase.functions.invoke("rootix-check", {
+        body: { platform_id: platformId },
+      });
+      if (error) throw error;
+      setCheckResults((prev) => ({ ...prev, [platformId]: data }));
+      if (data.fixes_applied?.length) {
+        toast.success(`🛠️ AI أصلح ${data.fixes_applied.length} مشكلة`);
+      } else if (data.ok) {
+        toast.success("✅ المنصة سليمة 100%");
+      } else {
+        toast.error(`⚠️ ${data.issues.length} مشكلة محتاجة مراجعة`);
+      }
+    } catch (e: any) {
+      toast.error("فشل الفحص: " + e.message);
+    } finally {
+      setCheckingId(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -207,6 +278,23 @@ export default function Admin() {
       </nav>
 
       <div className="container mx-auto px-6 py-8">
+        {/* New requests alert banner */}
+        {stats.pending > 0 && (
+          <button
+            onClick={() => setFilter("pending")}
+            className="w-full mb-6 rounded-xl border-2 border-primary bg-gradient-to-l from-primary/20 via-primary/10 to-transparent p-4 flex items-center gap-4 hover:from-primary/30 transition-all animate-pulse-glow text-start"
+          >
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+              <Bell className="w-6 h-6 text-primary animate-bounce" />
+            </div>
+            <div className="flex-1">
+              <div className="font-bold text-lg">🔔 عندك {stats.pending} طلب جديد محتاج رد!</div>
+              <div className="text-sm text-muted-foreground">دوس هنا تشوف الطلبات الجديدة</div>
+            </div>
+            <span className="text-2xl font-black text-primary">{stats.pending}</span>
+          </button>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
@@ -332,6 +420,35 @@ export default function Admin() {
                     <div className="w-10 h-10 rounded-lg flex-shrink-0" style={{ backgroundColor: p.config?.template?.primary_color || p.config?.primary_color || "#888" }} />
                   </div>
 
+                  {/* AI Check result */}
+                  {checkResults[p.id] && (
+                    <div className={`mb-3 p-3 rounded-lg border text-sm ${checkResults[p.id].ok ? "border-green-500/30 bg-green-500/5" : "border-orange-500/30 bg-orange-500/5"}`}>
+                      <div className="font-semibold mb-1 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        تقرير ROOTIX AI
+                      </div>
+                      <div className="text-muted-foreground mb-2">{checkResults[p.id].summary}</div>
+                      {checkResults[p.id].fixes_applied?.length > 0 && (
+                        <ul className="text-xs space-y-0.5">
+                          {checkResults[p.id].fixes_applied.map((f: string, i: number) => (
+                            <li key={i} className="text-green-500">✓ {f}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {checkResults[p.id].issues?.filter((i: any) => i.severity === "warn").map((iss: any, i: number) => (
+                        <div key={i} className="text-xs text-yellow-500 mt-1">⚠️ {iss.msg}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Auto-check summary stored on platform */}
+                  {p.admin_notes && !checkResults[p.id] && (
+                    <div className="mb-3 p-2 rounded-lg bg-muted/30 border border-border text-xs text-muted-foreground">
+                      <Sparkles className="w-3 h-3 inline ml-1 text-primary" />
+                      {p.admin_notes}
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
                     {p.status === "pending" && (
                       <>
@@ -368,6 +485,16 @@ export default function Admin() {
                         <Play className="w-4 h-4 ml-1" />تشغيل
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => runAiCheck(p.id)}
+                      disabled={checkingId === p.id}
+                      className="border-primary/50 text-primary hover:bg-primary/10"
+                    >
+                      {checkingId === p.id ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Sparkles className="w-4 h-4 ml-1" />}
+                      فحص بـ AI
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => deletePlatform(p.id)} className="text-destructive hover:text-destructive">
                       <Trash2 className="w-4 h-4" />
                     </Button>
