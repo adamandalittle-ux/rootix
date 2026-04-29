@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Zap, Shield, Users, ArrowLeft, Check, Star } from "lucide-react";
+// Star kept for features grid below
 
 const Index = () => {
   return (
