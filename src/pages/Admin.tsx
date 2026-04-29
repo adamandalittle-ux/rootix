@@ -278,6 +278,23 @@ export default function Admin() {
       </nav>
 
       <div className="container mx-auto px-6 py-8">
+        {/* New requests alert banner */}
+        {stats.pending > 0 && (
+          <button
+            onClick={() => setFilter("pending")}
+            className="w-full mb-6 rounded-xl border-2 border-primary bg-gradient-to-l from-primary/20 via-primary/10 to-transparent p-4 flex items-center gap-4 hover:from-primary/30 transition-all animate-pulse-glow text-start"
+          >
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+              <Bell className="w-6 h-6 text-primary animate-bounce" />
+            </div>
+            <div className="flex-1">
+              <div className="font-bold text-lg">🔔 عندك {stats.pending} طلب جديد محتاج رد!</div>
+              <div className="text-sm text-muted-foreground">دوس هنا تشوف الطلبات الجديدة</div>
+            </div>
+            <span className="text-2xl font-black text-primary">{stats.pending}</span>
+          </button>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
