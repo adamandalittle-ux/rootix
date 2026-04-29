@@ -420,6 +420,35 @@ export default function Admin() {
                     <div className="w-10 h-10 rounded-lg flex-shrink-0" style={{ backgroundColor: p.config?.template?.primary_color || p.config?.primary_color || "#888" }} />
                   </div>
 
+                  {/* AI Check result */}
+                  {checkResults[p.id] && (
+                    <div className={`mb-3 p-3 rounded-lg border text-sm ${checkResults[p.id].ok ? "border-green-500/30 bg-green-500/5" : "border-orange-500/30 bg-orange-500/5"}`}>
+                      <div className="font-semibold mb-1 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        تقرير ROOTIX AI
+                      </div>
+                      <div className="text-muted-foreground mb-2">{checkResults[p.id].summary}</div>
+                      {checkResults[p.id].fixes_applied?.length > 0 && (
+                        <ul className="text-xs space-y-0.5">
+                          {checkResults[p.id].fixes_applied.map((f: string, i: number) => (
+                            <li key={i} className="text-green-500">✓ {f}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {checkResults[p.id].issues?.filter((i: any) => i.severity === "warn").map((iss: any, i: number) => (
+                        <div key={i} className="text-xs text-yellow-500 mt-1">⚠️ {iss.msg}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Auto-check summary stored on platform */}
+                  {p.admin_notes && !checkResults[p.id] && (
+                    <div className="mb-3 p-2 rounded-lg bg-muted/30 border border-border text-xs text-muted-foreground">
+                      <Sparkles className="w-3 h-3 inline ml-1 text-primary" />
+                      {p.admin_notes}
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
                     {p.status === "pending" && (
                       <>
