@@ -44,7 +44,7 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [studentCounts, setStudentCounts] = useState<StudentCounts>({});
-  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "paused" | "alerts">("pending");
+  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "paused" | "alerts" | "deleted">("pending");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingId, setCheckingId] = useState<string | null>(null);
