@@ -195,10 +195,41 @@ export default function Admin() {
   };
 
   const deletePlatform = async (id: string) => {
-    if (!confirm("متأكد تحذف المنصة؟ مش هتقدر ترجعها.")) return;
-    const { error } = await supabase.from("platforms").update({ status: "deleted" }).eq("id", id);
+    const reason = prompt("ليه بتحذف المنصة دي؟ (اكتب السبب)");
+    if (!reason || !reason.trim()) return toast.error("لازم تكتب سبب");
+    const { error } = await supabase.from("platforms").update({
+      status: "deleted",
+      deleted_at: new Date().toISOString(),
+      deleted_reason: reason.trim(),
+    }).eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success("تم الحذف");
+    toast.success("تم الأرشفة");
+  };
+
+  const restorePlatform = async (id: string) => {
+    if (!confirm("ترجع المنصة دي؟")) return;
+    await supabase.from("platforms").update({ status: "pending", deleted_at: null, deleted_reason: null }).eq("id", id);
+    toast.success("رجعت");
+  };
+
+  const purgePlatform = async (id: string) => {
+    if (!confirm("⚠️ حذف نهائي! مش هترجع تاني. متأكد؟")) return;
+    const { error } = await supabase.from("platforms").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("تم الحذف نهائياً");
+  };
+
+  const changePackage = async (p: Platform) => {
+    const newCount = prompt(`غير عدد الطلاب للباقة (الحالي: ${p.package_students}):`, String(p.package_students));
+    if (!newCount) return;
+    const newPrice = prompt(`السعر الجديد بالجنيه (الحالي: ${p.package_price}):`, String(p.package_price));
+    if (!newPrice) return;
+    await supabase.from("platforms").update({
+      package_students: parseInt(newCount),
+      package_price: parseInt(newPrice),
+      upgrade_request: null,
+    }).eq("id", p.id);
+    toast.success("تم تحديث الباقة");
   };
 
   const copyLink = (slug: string) => {
