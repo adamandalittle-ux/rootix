@@ -1,17 +1,19 @@
+// ROOTIX Teacher Dashboard v2 — direct access, gate toggle, password setter, PDF codes, package upgrade request
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen } from "lucide-react";
+import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen, Lock, Unlock, Settings as Cog, Download, TrendingUp, Eye, EyeOff } from "lucide-react";
+import jsPDF from "jspdf";
 
 export default function PlatformAdmin() {
   const { slug } = useParams();
   const [platform, setPlatform] = useState<any>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [pw, setPw] = useState("");
-  const [tab, setTab] = useState<"content" | "students" | "codes">("content");
+  const [needsPassword, setNeedsPassword] = useState(false);
+  const [pwInput, setPwInput] = useState("");
+  const [tab, setTab] = useState<"content" | "students" | "codes" | "settings">("content");
   const [content, setContent] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [codes, setCodes] = useState<any[]>([]);
@@ -21,29 +23,35 @@ export default function PlatformAdmin() {
   }, [slug]);
 
   useEffect(() => {
-    if (!loggedIn || !platform) return;
+    if (needsPassword || !platform) return;
     refreshAll();
 
-    // Realtime: any change in content/students/codes updates instantly
     const channel = supabase
       .channel(`platform-${platform.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "content", filter: `platform_id=eq.${platform.id}` }, refreshAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "students", filter: `platform_id=eq.${platform.id}` }, refreshAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "student_codes", filter: `platform_id=eq.${platform.id}` }, refreshAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "platforms", filter: `id=eq.${platform.id}` }, () => load())
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [loggedIn, platform]);
+    return () => { supabase.removeChannel(channel); };
+  }, [needsPassword, platform]);
 
   const load = async () => {
-    const { data } = await supabase.from("platforms").select("*").eq("slug", slug!).maybeSingle();
+    const { data } = await supabase.from("platforms").select("*").eq("slug", slug!).is("deleted_at", null).maybeSingle();
+    if (!data) {
+      setPlatform(null);
+      return;
+    }
     setPlatform(data);
-    if (localStorage.getItem(`rootix_platform_admin_${slug}`) === "1") setLoggedIn(true);
+    // Direct access if no dashboard_password set
+    const requiresPw = !!data.dashboard_password;
+    const sessionOk = sessionStorage.getItem(`rootix_pdash_${slug}`) === "1";
+    setNeedsPassword(requiresPw && !sessionOk);
   };
 
   const refreshAll = async () => {
+    if (!platform) return;
     const [c, s, k] = await Promise.all([
       supabase.from("content").select("*").eq("platform_id", platform.id).order("created_at", { ascending: false }),
       supabase.from("students").select("*").eq("platform_id", platform.id).order("created_at", { ascending: false }),
@@ -54,77 +62,96 @@ export default function PlatformAdmin() {
     setCodes(k.data || []);
   };
 
-  const login = () => {
-    // Simple auth: password = platform code (e.g. R-1234) or teacher phone last 4
+  const tryUnlock = () => {
     if (!platform) return;
-    if (pw === platform.code || pw === platform.teacher_phone) {
-      localStorage.setItem(`rootix_platform_admin_${slug}`, "1");
-      setLoggedIn(true);
+    if (pwInput === platform.dashboard_password) {
+      sessionStorage.setItem(`rootix_pdash_${slug}`, "1");
+      setNeedsPassword(false);
       toast.success("أهلاً أستاذ " + platform.teacher_name);
     } else {
-      toast.error("كلمة المرور غير صحيحة");
+      toast.error("كلمة المرور غلط");
     }
   };
 
-  if (!platform) return <div className="min-h-screen flex items-center justify-center">جاري التحميل...</div>;
-
-  if (!loggedIn) {
+  if (!platform) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6">
-          <h1 className="text-xl font-bold mb-1">لوحة تحكم المدرس</h1>
-          <p className="text-sm text-muted-foreground mb-5">{platform.config?.platform_name || platform.teacher_name}</p>
-          <Input
-            type="password"
-            placeholder="كلمة المرور (كود المنصة أو رقم هاتفك)"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && login()}
-          />
-          <Button onClick={login} className="w-full mt-3 bg-primary hover:bg-primary/90 text-primary-foreground">
-            دخول
-          </Button>
+      <div className="min-h-screen flex items-center justify-center p-6 text-center">
+        <div>
+          <div className="text-5xl mb-3">😕</div>
+          <h1 className="text-2xl font-bold mb-2">المنصة غير موجودة</h1>
+          <p className="text-muted-foreground">الرابط غلط أو المنصة محذوفة</p>
         </div>
       </div>
     );
   }
 
+  if (needsPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6">
+          <Lock className="w-8 h-8 text-primary mb-3" />
+          <h1 className="text-xl font-bold mb-1">لوحة تحكم {platform.config?.platform_name || platform.teacher_name}</h1>
+          <p className="text-sm text-muted-foreground mb-5">حضرتك فعّلت كلمة سر للحماية. ادخلها علشان تكمل.</p>
+          <Input type="password" placeholder="كلمة المرور" value={pwInput} onChange={(e) => setPwInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tryUnlock()} />
+          <Button onClick={tryUnlock} className="w-full mt-3 bg-primary text-primary-foreground">دخول</Button>
+          <p className="text-xs text-muted-foreground mt-4 text-center">نسيت كلمة السر؟ كلم الأدمن، عنده نسخة.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const overCapacityBy = Math.max(0, students.length - platform.package_students);
+
   return (
     <div className="min-h-screen">
-      <nav className="border-b border-border bg-card">
+      <nav className="border-b border-border bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div>
             <div className="font-bold text-sm">{platform.config?.platform_name}</div>
             <div className="text-xs text-muted-foreground">لوحة تحكم — {platform.teacher_name}</div>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => { localStorage.removeItem(`rootix_platform_admin_${slug}`); setLoggedIn(false); }}>
-            خروج
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-1 rounded-full ${platform.gate_mode === "open" ? "bg-green-500/10 text-green-500" : "bg-yellow-500/10 text-yellow-500"}`}>
+              {platform.gate_mode === "open" ? "مفتوحة" : "بكود"}
+            </span>
+          </div>
         </div>
       </nav>
 
       <div className="container mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <StatCard label="الطلاب" value={students.length} max={platform.package_students} icon={Users} />
+        {overCapacityBy > 0 && (
+          <div className="mb-4 rounded-xl border-2 border-orange-500/40 bg-orange-500/10 p-4 flex items-center gap-3">
+            <TrendingUp className="w-6 h-6 text-orange-500 shrink-0" />
+            <div className="flex-1">
+              <div className="font-bold text-sm">دخل {students.length} طالب — تجاوزت باقتك بـ {overCapacityBy}</div>
+              <div className="text-xs text-muted-foreground">المنصة شغالة عادي، بس الأدمن هيكلمك يرفع الباقة.</div>
+            </div>
+            <Button size="sm" onClick={() => requestUpgrade(platform)}>طلب رفع الباقة</Button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <StatCard label="الطلاب" value={students.length} max={platform.package_students} icon={Users} warn={overCapacityBy > 0} />
           <StatCard label="المحتوى" value={content.length} icon={FileText} />
           <StatCard label="أكواد متاحة" value={codes.filter(c => !c.is_used).length} icon={KeyRound} />
+          <StatCard label="نتائج امتحانات" value="—" icon={BookOpen} />
         </div>
 
-        <div className="flex gap-2 mb-6 border-b border-border">
+        <div className="flex gap-2 mb-6 border-b border-border overflow-x-auto">
           {[
-            { k: "content", label: "المحتوى" },
-            { k: "students", label: "الطلاب" },
-            { k: "codes", label: "الأكواد" },
+            { k: "content", label: "المحتوى", icon: FileText },
+            { k: "students", label: "الطلاب", icon: Users },
+            { k: "codes", label: "الأكواد", icon: KeyRound },
+            { k: "settings", label: "الإعدادات", icon: Cog },
           ].map((t) => (
             <button
               key={t.k}
               onClick={() => setTab(t.k as any)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${
+              className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 ${
                 tab === t.k ? "border-primary text-foreground" : "border-transparent text-muted-foreground"
               }`}
             >
-              {t.label}
+              <t.icon className="w-3.5 h-3.5" />{t.label}
             </button>
           ))}
         </div>
@@ -132,16 +159,105 @@ export default function PlatformAdmin() {
         {tab === "content" && <ContentManager platform={platform} items={content} refresh={refreshAll} />}
         {tab === "students" && <StudentsList students={students} refresh={refreshAll} />}
         {tab === "codes" && <CodesManager platform={platform} codes={codes} refresh={refreshAll} />}
+        {tab === "settings" && <SettingsTab platform={platform} reload={load} />}
       </div>
     </div>
   );
 }
 
-function StatCard({ label, value, max, icon: Icon }: any) {
+async function requestUpgrade(platform: any) {
+  await supabase.from("platforms").update({ upgrade_request: `طلب رفع الباقة في ${new Date().toLocaleDateString("ar-EG")}` }).eq("id", platform.id);
+  toast.success("✅ تم إرسال الطلب للأدمن، هيكلمك قريب");
+}
+
+function StatCard({ label, value, max, icon: Icon, warn }: any) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className={`rounded-xl border ${warn ? "border-orange-500/50 bg-orange-500/5" : "border-border bg-card"} p-4`}>
       <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2"><Icon className="w-3.5 h-3.5" />{label}</div>
       <div className="text-2xl font-bold">{value}{max && <span className="text-sm text-muted-foreground"> / {max}</span>}</div>
+    </div>
+  );
+}
+
+function SettingsTab({ platform, reload }: any) {
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [showPw, setShowPw] = useState(false);
+
+  const toggleGate = async () => {
+    const next = platform.gate_mode === "open" ? "code" : "open";
+    await supabase.from("platforms").update({ gate_mode: next }).eq("id", platform.id);
+    toast.success(next === "open" ? "المنصة مفتوحة دلوقتي للجميع" : "المنصة بقت مقفلة بالكود");
+    reload();
+  };
+
+  const setPassword = async () => {
+    if (pwNew.length < 4) return toast.error("كلمة السر لازم 4 حروف على الأقل");
+    if (pwNew !== pwConfirm) return toast.error("كلمتين السر مش متطابقين");
+    await supabase.from("platforms").update({ dashboard_password: pwNew }).eq("id", platform.id);
+    toast.success("✅ تم تفعيل كلمة السر. الأدمن عنده نسخة لو نسيتها.");
+    setPwNew(""); setPwConfirm("");
+    reload();
+  };
+
+  const removePassword = async () => {
+    if (!confirm("متأكد؟ اللوحة هتبقى مفتوحة لأي حد عنده الرابط")) return;
+    await supabase.from("platforms").update({ dashboard_password: null }).eq("id", platform.id);
+    sessionStorage.removeItem(`rootix_pdash_${platform.slug}`);
+    toast.success("تم إلغاء كلمة السر");
+    reload();
+  };
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      {/* Gate toggle */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-bold flex items-center gap-2">
+              {platform.gate_mode === "open" ? <Unlock className="w-4 h-4 text-green-500" /> : <Lock className="w-4 h-4 text-yellow-500" />}
+              طريقة دخول الطلاب
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {platform.gate_mode === "open"
+                ? "أي طالب عنده الرابط يقدر يسجل ويدخل (الأسرع)"
+                : "الطلاب لازم يدخلوا بكود من حضرتك (الأكثر أماناً)"}
+            </p>
+          </div>
+          <Button onClick={toggleGate} variant={platform.gate_mode === "open" ? "outline" : "default"}>
+            {platform.gate_mode === "open" ? "اقفل بكود" : "افتح للجميع"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Dashboard password */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <div className="font-bold flex items-center gap-2 mb-1"><Lock className="w-4 h-4 text-primary" /> كلمة سر لوحة التحكم</div>
+        <p className="text-sm text-muted-foreground mb-3">
+          {platform.dashboard_password
+            ? "✅ مفعّلة — أي حد عايز يدخل اللوحة هيطلب منه كلمة السر."
+            : "⚠️ غير مفعّلة — أي حد عنده الرابط يقدر يدخل اللوحة. ينصح بشدة تفعّلها."}
+        </p>
+
+        {platform.dashboard_password && (
+          <div className="rounded-lg border border-border bg-muted/30 p-3 mb-3 flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">كلمة السر الحالية:</span>
+            <code className="font-mono text-sm flex-1">{showPw ? platform.dashboard_password : "•".repeat(platform.dashboard_password.length)}</code>
+            <Button size="sm" variant="ghost" onClick={() => setShowPw(!showPw)}>
+              {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </Button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+          <Input type="password" placeholder="كلمة سر جديدة" value={pwNew} onChange={(e) => setPwNew(e.target.value)} />
+          <Input type="password" placeholder="تأكيد كلمة السر" value={pwConfirm} onChange={(e) => setPwConfirm(e.target.value)} />
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={setPassword} className="flex-1 bg-primary text-primary-foreground">حفظ كلمة السر</Button>
+          {platform.dashboard_password && <Button onClick={removePassword} variant="outline">إلغاء</Button>}
+        </div>
+      </div>
     </div>
   );
 }
@@ -197,7 +313,6 @@ function ContentManager({ platform, items, refresh }: any) {
 
   return (
     <div>
-      {/* Type picker */}
       <div className="flex gap-2 mb-4 flex-wrap">
         {[
           { k: "video", label: "فيديو", icon: Video },
@@ -217,7 +332,6 @@ function ContentManager({ platform, items, refresh }: any) {
         ))}
       </div>
 
-      {/* Add form */}
       <div className="rounded-xl border border-border bg-card p-4 mb-6">
         {kind === "video" || kind === "pdf" ? (
           <div className="grid md:grid-cols-2 gap-3">
@@ -226,7 +340,7 @@ function ContentManager({ platform, items, refresh }: any) {
               <option value="">الصف</option>
               {grades.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
-            <Input placeholder={kind === "video" ? "رابط الفيديو (YouTube/Direct)" : "رابط PDF"} value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} className="md:col-span-2" />
+            <Input placeholder={kind === "video" ? "رابط الفيديو" : "رابط PDF"} value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} className="md:col-span-2" />
             <Input placeholder="اسم الدرس (اختياري)" value={form.lesson} onChange={(e) => setForm({ ...form, lesson: e.target.value })} className="md:col-span-2" />
             <Button onClick={addSimple} className="md:col-span-2 bg-primary text-primary-foreground">
               <Plus className="w-4 h-4 ml-1" />إضافة
@@ -266,7 +380,6 @@ function ContentManager({ platform, items, refresh }: any) {
         )}
       </div>
 
-      {/* List */}
       <div className="space-y-2">
         {items.filter((i: any) => i.kind === kind).map((i: any) => (
           <div key={i.id} className="rounded-lg border border-border bg-card p-3 flex items-center justify-between">
@@ -309,18 +422,70 @@ function StudentsList({ students, refresh }: any) {
 }
 
 function CodesManager({ platform, codes, refresh }: any) {
-  const [count, setCount] = useState(10);
+  const [count, setCount] = useState(50);
+  const [generating, setGenerating] = useState(false);
 
   const generate = async () => {
-    const newCodes = Array.from({ length: count }, () => ({
-      platform_id: platform.id,
-      code: Math.random().toString(36).slice(2, 8).toUpperCase(),
-      is_used: false,
-    }));
-    const { error } = await supabase.from("student_codes").insert(newCodes);
-    if (error) return toast.error(error.message);
-    toast.success(`تم توليد ${count} كود`);
-    refresh();
+    if (count < 1 || count > 5000) return toast.error("العدد لازم بين 1 و 5000");
+    setGenerating(true);
+    try {
+      const newCodes = Array.from({ length: count }, () => ({
+        platform_id: platform.id,
+        code: Math.random().toString(36).slice(2, 8).toUpperCase(),
+        is_used: false,
+      }));
+      const { error } = await supabase.from("student_codes").insert(newCodes);
+      if (error) throw error;
+      toast.success(`تم توليد ${count} كود`);
+      refresh();
+    } catch (e: any) {
+      toast.error("فشل: " + e.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const downloadPdf = () => {
+    const unused = codes.filter((c: any) => !c.is_used);
+    if (unused.length === 0) return toast.error("مفيش أكواد متاحة. ولّد أكواد جديدة الأول.");
+
+    const doc = new jsPDF();
+    const platformName = platform.config?.platform_name || "ROOTIX Platform";
+
+    // Header
+    doc.setFontSize(18);
+    doc.text(platformName, 105, 20, { align: "center" });
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Student Access Codes - ${unused.length} codes`, 105, 28, { align: "center" });
+    doc.text(`Generated: ${new Date().toLocaleDateString("en-US")}`, 105, 34, { align: "center" });
+    doc.setDrawColor(180);
+    doc.line(20, 40, 190, 40);
+
+    // Codes in 3 columns
+    doc.setFontSize(13);
+    doc.setTextColor(0);
+    doc.setFont("courier", "bold");
+    const cols = 3;
+    const startY = 50;
+    const colW = (190 - 20) / cols;
+    const rowH = 9;
+    const rowsPerPage = 30;
+
+    unused.forEach((c: any, idx: number) => {
+      const localIdx = idx % (cols * rowsPerPage);
+      const col = localIdx % cols;
+      const row = Math.floor(localIdx / cols);
+      const x = 20 + col * colW + colW / 2;
+      const y = startY + row * rowH;
+      doc.text(`${idx + 1}. ${c.code}`, x, y, { align: "center" });
+      if ((idx + 1) % (cols * rowsPerPage) === 0 && idx + 1 < unused.length) {
+        doc.addPage();
+      }
+    });
+
+    doc.save(`${platform.slug}-codes-${unused.length}.pdf`);
+    toast.success("تم تحميل ملف الأكواد PDF");
   };
 
   const copyAll = () => {
@@ -329,19 +494,53 @@ function CodesManager({ platform, codes, refresh }: any) {
     toast.success("تم نسخ الأكواد");
   };
 
+  const usedCount = codes.filter((c: any) => c.is_used).length;
+  const unusedCount = codes.length - usedCount;
+
   return (
     <div>
-      <div className="rounded-xl border border-border bg-card p-4 mb-4 flex gap-2">
-        <Input type="number" value={count} onChange={(e) => setCount(+e.target.value)} placeholder="عدد الأكواد" />
-        <Button onClick={generate} className="bg-primary text-primary-foreground"><Plus className="w-4 h-4 ml-1" />توليد</Button>
-        <Button variant="outline" onClick={copyAll}>نسخ غير المستخدم</Button>
+      {platform.gate_mode === "open" && (
+        <div className="mb-4 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
+          <strong>⚠️ المنصة دلوقتي مفتوحة بدون كود.</strong> الأكواد دي مش هتشتغل إلا لما تقفل المنصة من الإعدادات.
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <StatCard label="إجمالي" value={codes.length} icon={KeyRound} />
+        <StatCard label="مستخدم" value={usedCount} icon={Users} />
+        <StatCard label="متاح" value={unusedCount} icon={KeyRound} />
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        {codes.map((c: any) => (
+
+      <div className="rounded-xl border border-border bg-card p-4 mb-4">
+        <div className="font-bold mb-3 flex items-center gap-2"><Plus className="w-4 h-4 text-primary" />ولّد أكواد جديدة</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <Input type="number" min={1} max={5000} value={count} onChange={(e) => setCount(+e.target.value)} placeholder="عدد الأكواد" />
+          <Button onClick={generate} disabled={generating} className="bg-primary text-primary-foreground">
+            <Plus className="w-4 h-4 ml-1" />
+            {generating ? "جاري التوليد..." : `ولّد ${count} كود`}
+          </Button>
+          <Button onClick={downloadPdf} variant="outline" disabled={unusedCount === 0}>
+            <Download className="w-4 h-4 ml-1" />تحميل PDF
+          </Button>
+        </div>
+        <div className="text-xs text-muted-foreground mt-2">يمكنك توليد لحد 5000 كود مرة واحدة.</div>
+      </div>
+
+      <div className="flex gap-2 mb-3">
+        <Button onClick={copyAll} variant="outline" size="sm" disabled={unusedCount === 0}>نسخ الأكواد المتاحة</Button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+        {codes.slice(0, 200).map((c: any) => (
           <div key={c.id} className={`rounded-lg border p-2 text-center font-mono text-sm ${c.is_used ? "border-border bg-muted/30 text-muted-foreground line-through" : "border-primary/30 bg-primary/5"}`}>
             {c.code}
           </div>
         ))}
+        {codes.length > 200 && (
+          <div className="col-span-full text-center text-xs text-muted-foreground py-2">
+            + {codes.length - 200} كود آخر... (حمل PDF لتشوفهم كلهم)
+          </div>
+        )}
       </div>
     </div>
   );
