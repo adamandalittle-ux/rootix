@@ -93,10 +93,16 @@ export default function PlatformPage() {
       .from("platforms")
       .select("*")
       .eq("slug", slug!)
+      .is("deleted_at", null) // hide deleted platforms from public
       .maybeSingle();
     setLoading(false);
     if (error || !data) return;
     setPlatform(data as any);
+    // If gate is open and student not yet registered → skip code step, go to register
+    const savedStudent = localStorage.getItem(`rootix_student_${slug}`);
+    if (!savedStudent && (data as any).gate_mode === "open") {
+      setStep("register");
+    }
   };
 
   const loadContent = async () => {
