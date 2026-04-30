@@ -335,7 +335,7 @@ export default function Admin() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
           {[
             { label: "إجمالي المنصات", value: stats.total, icon: Users, color: "text-primary" },
             { label: "طلبات جديدة", value: stats.pending, icon: Calendar, color: "text-yellow-500" },
