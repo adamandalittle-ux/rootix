@@ -259,16 +259,44 @@ export default function Builder() {
   const createDraft = async (cfg: AIConfig) => {
     const code = genCode();
     const template = getTemplateById(cfg.template_id);
+    // Ensure slug is unique even against deleted platforms (blacklist)
+    let slug = cfg.slug;
+    for (let i = 0; i < 5; i++) {
+      const { data: existing } = await supabase.from("platforms").select("id").eq("slug", slug).maybeSingle();
+      if (!existing) break;
+      slug = forceEnglishSlug(cfg.platform_name);
+    }
+    cfg.slug = slug;
+
     const fullConfig = {
       ...cfg,
       template,
       template_id: cfg.template_id,
-      logo_text: cfg.platform_name.charAt(0),
-      welcome_message: `أهلاً بيك في ${cfg.platform_name} 🎉`,
-      videos_label: "الفيديوهات",
-      exams_label: "الامتحانات",
+      logo_text: cfg.logo_text || cfg.platform_name.charAt(0),
+      welcome_message: cfg.welcome_message || `أهلاً بيك في ${cfg.platform_name} 🎉`,
+      videos_label: cfg.videos_label || "الفيديوهات",
+      exams_label: cfg.exams_label || "الامتحانات",
+      pdf_label: cfg.pdf_label || "ملفات PDF",
+      questions_label: cfg.questions_label || "بنك الأسئلة",
+      button_shape: cfg.button_shape || "soft",
+      animation_level: cfg.animation_level || "medium",
+      watermark_enabled: cfg.watermark_enabled !== false,
+      video_speeds: cfg.video_speeds !== false,
+      prevent_download: cfg.prevent_download !== false,
+      student_navbar_visible: cfg.student_navbar_visible !== false,
+      instant_exam_results: cfg.instant_exam_results !== false,
+      content_locked_by_grade: cfg.content_locked_by_grade !== false,
+      new_badge_enabled: cfg.new_badge_enabled !== false,
+      allow_pdf_download: cfg.allow_pdf_download === true,
+      show_student_count: cfg.show_student_count === true,
+      leaderboard_enabled: cfg.leaderboard_enabled !== false,
+      about_teacher_page: cfg.about_teacher_page === true,
+      // CONSISTENT colors across ALL pages — no per-page color drift
       primary_color: template.primary_color,
       accent_color: template.accent_color,
+      bg_color: template.bg_color,
+      surface_color: template.surface_color,
+      text_color: template.text_color,
     };
     const { data, error } = await supabase.from("platforms").insert({
       code,
@@ -281,8 +309,9 @@ export default function Builder() {
       template_tier: "normal",
       package_students: 50,
       package_price: 500,
+      gate_mode: cfg.default_gate_mode || "open",
       config: fullConfig as any,
-      status: "approved", // approved so /m/:slug renders the preview
+      status: "approved",
       payment_status: "draft",
     }).select().maybeSingle();
     if (error) {
