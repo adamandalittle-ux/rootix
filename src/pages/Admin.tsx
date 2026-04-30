@@ -25,6 +25,10 @@ interface Platform {
   requested_students?: number | null;
   requested_tier?: string | null;
   upgrade_request?: string | null;
+  deleted_at?: string | null;
+  deleted_reason?: string | null;
+  dashboard_password?: string | null;
+  gate_mode?: string;
 }
 
 interface StudentCounts {
