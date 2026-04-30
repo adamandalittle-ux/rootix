@@ -406,7 +406,7 @@ export default function Builder() {
   };
 
   const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-  const { suggestions } = lastAssistant ? parseSuggestions(lastAssistant.content) : { suggestions: [] };
+  const { suggestions, swatches } = lastAssistant ? parseSuggestions(lastAssistant.content) : { suggestions: [], swatches: [] as Swatch[] };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
