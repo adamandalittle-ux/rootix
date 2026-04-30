@@ -536,9 +536,26 @@ export default function Admin() {
                       {checkingId === p.id ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Sparkles className="w-4 h-4 ml-1" />}
                       فحص بـ AI
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => deletePlatform(p.id)} className="text-destructive hover:text-destructive">
-                      <Trash2 className="w-4 h-4" />
+                    <Button size="sm" variant="outline" onClick={() => changePackage(p)}>
+                      تغيير الباقة
                     </Button>
+                    {p.dashboard_password && (
+                      <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(p.dashboard_password!); toast.success("نسخ كلمة سر المدرس: " + p.dashboard_password); }}>
+                        🔑 كلمة السر
+                      </Button>
+                    )}
+                    {(p.status === "deleted" || p.deleted_at) ? (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => restorePlatform(p.id)}>↩️ استرجاع</Button>
+                        <Button size="sm" variant="ghost" onClick={() => purgePlatform(p.id)} className="text-destructive">
+                          <Trash2 className="w-4 h-4" /> نهائي
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" variant="ghost" onClick={() => deletePlatform(p.id)} className="text-destructive hover:text-destructive">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
