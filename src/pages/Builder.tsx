@@ -19,18 +19,54 @@ interface AIConfig {
   slug: string;
   mood: string;
   template_id: string;
+  logo_text?: string;
+  welcome_message?: string;
+  videos_label?: string;
+  exams_label?: string;
+  pdf_label?: string;
+  questions_label?: string;
+  button_shape?: string;
+  animation_level?: string;
+  watermark_enabled?: boolean;
+  video_speeds?: boolean;
+  prevent_download?: boolean;
+  student_navbar_visible?: boolean;
+  instant_exam_results?: boolean;
+  content_locked_by_grade?: boolean;
+  new_badge_enabled?: boolean;
+  default_gate_mode?: "open" | "code";
+  allow_pdf_download?: boolean;
+  show_student_count?: boolean;
+  leaderboard_enabled?: boolean;
+  about_teacher_page?: boolean;
 }
 
-function parseSuggestions(text: string): { clean: string; suggestions: string[] } {
-  const match = text.match(/SUGGESTIONS:\s*(\[[\s\S]*?\])/);
-  if (!match) return { clean: text, suggestions: [] };
-  try {
-    const suggestions = JSON.parse(match[1]);
-    const clean = text.replace(match[0], "").trim();
-    return { clean, suggestions: Array.isArray(suggestions) ? suggestions : [] };
-  } catch {
-    return { clean: text, suggestions: [] };
+type Swatch = { name: string; hex: string };
+
+function parseSuggestions(text: string): { clean: string; suggestions: string[]; swatches: Swatch[] } {
+  let clean = text;
+  let suggestions: string[] = [];
+  let swatches: Swatch[] = [];
+
+  const sMatch = clean.match(/SUGGESTIONS:\s*(\[[\s\S]*?\])/);
+  if (sMatch) {
+    try {
+      const parsed = JSON.parse(sMatch[1]);
+      if (Array.isArray(parsed)) suggestions = parsed;
+    } catch {}
+    clean = clean.replace(sMatch[0], "").trim();
   }
+
+  const cMatch = clean.match(/COLOR_SWATCH:\s*(\[[\s\S]*?\])/);
+  if (cMatch) {
+    try {
+      const parsed = JSON.parse(cMatch[1]);
+      if (Array.isArray(parsed)) swatches = parsed.filter((x: any) => x?.hex);
+    } catch {}
+    clean = clean.replace(cMatch[0], "").trim();
+  }
+
+  return { clean, suggestions, swatches };
 }
 
 function accumulateToolCall(delta: any, acc: { name?: string; args: string }) {
@@ -133,6 +169,18 @@ export default function Builder() {
     setInput("");
     setLoading(true);
 
+    // Save teacher message as feedback (heuristic: only meaningful requests, skip 1-word answers)
+    const isRequest = trimmed.length > 12 &&
+      /(عايز|محتاج|ممكن|اقترح|ضيف|اعمل|غير|بدل|مش|مفيش|انيميشن|تأثير|لون|شكل|ميزة|خاصية|اضف|حذف|شيل|عدل|مشكلة|bug|غلط)/i.test(trimmed);
+    if (isRequest) {
+      // fire-and-forget; never block the chat
+      supabase.from("ai_feedback").insert({
+        teacher_message: trimmed,
+        category: /(غلط|مشكلة|bug|مش شغال|مش بيعمل)/i.test(trimmed) ? "complaint" : (/(اقترح|اعمل|ضيف|عايز ميزة|ممكن نضيف)/i.test(trimmed) ? "suggestion" : "request"),
+        ai_classification: /لون|color/i.test(trimmed) ? "color" : (/انيميشن|حركة/i.test(trimmed) ? "animation" : (/فيديو/i.test(trimmed) ? "video" : "general")),
+      }).then(() => {});
+    }
+
     let assistantSoFar = "";
     const toolAcc = { name: undefined as string | undefined, args: "" };
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
@@ -223,16 +271,44 @@ export default function Builder() {
   const createDraft = async (cfg: AIConfig) => {
     const code = genCode();
     const template = getTemplateById(cfg.template_id);
+    // Ensure slug is unique even against deleted platforms (blacklist)
+    let slug = cfg.slug;
+    for (let i = 0; i < 5; i++) {
+      const { data: existing } = await supabase.from("platforms").select("id").eq("slug", slug).maybeSingle();
+      if (!existing) break;
+      slug = forceEnglishSlug(cfg.platform_name);
+    }
+    cfg.slug = slug;
+
     const fullConfig = {
       ...cfg,
       template,
       template_id: cfg.template_id,
-      logo_text: cfg.platform_name.charAt(0),
-      welcome_message: `أهلاً بيك في ${cfg.platform_name} 🎉`,
-      videos_label: "الفيديوهات",
-      exams_label: "الامتحانات",
+      logo_text: cfg.logo_text || cfg.platform_name.charAt(0),
+      welcome_message: cfg.welcome_message || `أهلاً بيك في ${cfg.platform_name} 🎉`,
+      videos_label: cfg.videos_label || "الفيديوهات",
+      exams_label: cfg.exams_label || "الامتحانات",
+      pdf_label: cfg.pdf_label || "ملفات PDF",
+      questions_label: cfg.questions_label || "بنك الأسئلة",
+      button_shape: cfg.button_shape || "soft",
+      animation_level: cfg.animation_level || "medium",
+      watermark_enabled: cfg.watermark_enabled !== false,
+      video_speeds: cfg.video_speeds !== false,
+      prevent_download: cfg.prevent_download !== false,
+      student_navbar_visible: cfg.student_navbar_visible !== false,
+      instant_exam_results: cfg.instant_exam_results !== false,
+      content_locked_by_grade: cfg.content_locked_by_grade !== false,
+      new_badge_enabled: cfg.new_badge_enabled !== false,
+      allow_pdf_download: cfg.allow_pdf_download === true,
+      show_student_count: cfg.show_student_count === true,
+      leaderboard_enabled: cfg.leaderboard_enabled !== false,
+      about_teacher_page: cfg.about_teacher_page === true,
+      // CONSISTENT colors across ALL pages — no per-page color drift
       primary_color: template.primary_color,
       accent_color: template.accent_color,
+      bg_color: template.bg_color,
+      surface_color: template.surface_color,
+      text_color: template.text_color,
     };
     const { data, error } = await supabase.from("platforms").insert({
       code,
@@ -245,8 +321,9 @@ export default function Builder() {
       template_tier: "normal",
       package_students: 50,
       package_price: 500,
+      gate_mode: cfg.default_gate_mode || "open",
       config: fullConfig as any,
-      status: "approved", // approved so /m/:slug renders the preview
+      status: "approved",
       payment_status: "draft",
     }).select().maybeSingle();
     if (error) {
@@ -329,7 +406,7 @@ export default function Builder() {
   };
 
   const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-  const { suggestions } = lastAssistant ? parseSuggestions(lastAssistant.content) : { suggestions: [] };
+  const { suggestions, swatches } = lastAssistant ? parseSuggestions(lastAssistant.content) : { suggestions: [], swatches: [] as Swatch[] };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -507,6 +584,25 @@ export default function Builder() {
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Rocket className="w-5 h-5 ml-2" />ابعت للأدمن</>}
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Color swatches (visual color picker) */}
+        {stage === "chat" && swatches.length > 0 && !loading && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-3">
+            {swatches.map((sw, i) => (
+              <button
+                key={i}
+                onClick={() => send(sw.name)}
+                className="rounded-xl border-2 border-border hover:border-primary p-3 flex items-center gap-3 transition-all active:scale-95 bg-card"
+              >
+                <span
+                  className="w-8 h-8 rounded-lg shrink-0 shadow-md"
+                  style={{ background: sw.hex, boxShadow: `0 0 16px ${sw.hex}50` }}
+                />
+                <span className="text-sm font-medium text-start truncate">{sw.name}</span>
+              </button>
+            ))}
           </div>
         )}
 

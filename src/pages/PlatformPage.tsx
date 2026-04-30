@@ -17,6 +17,8 @@ interface Platform {
   template_tier: string;
   status: string;
   config: any;
+  gate_mode?: string;
+  deleted_at?: string | null;
 }
 
 interface Student {
@@ -91,10 +93,16 @@ export default function PlatformPage() {
       .from("platforms")
       .select("*")
       .eq("slug", slug!)
+      .is("deleted_at", null) // hide deleted platforms from public
       .maybeSingle();
     setLoading(false);
     if (error || !data) return;
     setPlatform(data as any);
+    // If gate is open and student not yet registered → skip code step, go to register
+    const savedStudent = localStorage.getItem(`rootix_student_${slug}`);
+    if (!savedStudent && (data as any).gate_mode === "open") {
+      setStep("register");
+    }
   };
 
   const loadContent = async () => {
@@ -146,11 +154,14 @@ export default function PlatformPage() {
       toast.error("املأ كل البيانات");
       return;
     }
+    const isOpenGate = platform.gate_mode === "open";
+    const accessCode = isOpenGate ? "OPEN-" + Math.random().toString(36).slice(2, 8).toUpperCase() : code.trim();
+
     const { data, error } = await supabase
       .from("students")
       .insert({
         platform_id: platform.id,
-        access_code: code.trim(),
+        access_code: accessCode,
         full_name: form.full_name,
         phone: form.phone,
         grade_level: form.grade_level,
@@ -161,15 +172,17 @@ export default function PlatformPage() {
       toast.error(error.message);
       return;
     }
-    await supabase
-      .from("student_codes")
-      .update({ is_used: true })
-      .eq("platform_id", platform.id)
-      .eq("code", code.trim());
+    if (!isOpenGate) {
+      await supabase
+        .from("student_codes")
+        .update({ is_used: true })
+        .eq("platform_id", platform.id)
+        .eq("code", code.trim());
+    }
     setStudent(data as any);
     localStorage.setItem(`rootix_student_${slug}`, JSON.stringify(data));
     setStep("dashboard");
-    toast.success("تم التسجيل بنجاح");
+    toast.success("تم التسجيل بنجاح، أهلاً بيك! 🎉");
   };
 
   const logout = () => {

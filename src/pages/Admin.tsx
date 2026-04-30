@@ -25,6 +25,10 @@ interface Platform {
   requested_students?: number | null;
   requested_tier?: string | null;
   upgrade_request?: string | null;
+  deleted_at?: string | null;
+  deleted_reason?: string | null;
+  dashboard_password?: string | null;
+  gate_mode?: string;
 }
 
 interface StudentCounts {
@@ -40,7 +44,7 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [studentCounts, setStudentCounts] = useState<StudentCounts>({});
-  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "paused" | "alerts">("pending");
+  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "paused" | "alerts" | "deleted">("pending");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingId, setCheckingId] = useState<string | null>(null);
@@ -191,10 +195,41 @@ export default function Admin() {
   };
 
   const deletePlatform = async (id: string) => {
-    if (!confirm("متأكد تحذف المنصة؟ مش هتقدر ترجعها.")) return;
-    const { error } = await supabase.from("platforms").update({ status: "deleted" }).eq("id", id);
+    const reason = prompt("ليه بتحذف المنصة دي؟ (اكتب السبب)");
+    if (!reason || !reason.trim()) return toast.error("لازم تكتب سبب");
+    const { error } = await supabase.from("platforms").update({
+      status: "deleted",
+      deleted_at: new Date().toISOString(),
+      deleted_reason: reason.trim(),
+    }).eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success("تم الحذف");
+    toast.success("تم الأرشفة");
+  };
+
+  const restorePlatform = async (id: string) => {
+    if (!confirm("ترجع المنصة دي؟")) return;
+    await supabase.from("platforms").update({ status: "pending", deleted_at: null, deleted_reason: null }).eq("id", id);
+    toast.success("رجعت");
+  };
+
+  const purgePlatform = async (id: string) => {
+    if (!confirm("⚠️ حذف نهائي! مش هترجع تاني. متأكد؟")) return;
+    const { error } = await supabase.from("platforms").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("تم الحذف نهائياً");
+  };
+
+  const changePackage = async (p: Platform) => {
+    const newCount = prompt(`غير عدد الطلاب للباقة (الحالي: ${p.package_students}):`, String(p.package_students));
+    if (!newCount) return;
+    const newPrice = prompt(`السعر الجديد بالجنيه (الحالي: ${p.package_price}):`, String(p.package_price));
+    if (!newPrice) return;
+    await supabase.from("platforms").update({
+      package_students: parseInt(newCount),
+      package_price: parseInt(newPrice),
+      upgrade_request: null,
+    }).eq("id", p.id);
+    toast.success("تم تحديث الباقة");
   };
 
   const copyLink = (slug: string) => {
@@ -232,8 +267,9 @@ export default function Admin() {
     (p.status === "active" && p.payment_status !== "paid");
 
   const filtered = platforms
-    .filter((p) => p.status !== "deleted")
     .filter((p) => {
+      if (filter === "deleted") return p.status === "deleted" || p.deleted_at;
+      if (p.status === "deleted" || p.deleted_at) return false;
       if (filter === "all") return true;
       if (filter === "pending") return p.status === "pending";
       if (filter === "approved") return p.status === "active" || p.status === "approved";
@@ -252,11 +288,14 @@ export default function Admin() {
       );
     });
 
+  const deletedPlatforms = platforms.filter((p) => p.status === "deleted" || p.deleted_at);
   const stats = {
-    total: platforms.filter((p) => p.status !== "deleted").length,
+    total: platforms.filter((p) => p.status !== "deleted" && !p.deleted_at).length,
     pending: platforms.filter((p) => p.status === "pending").length,
     active: platforms.filter((p) => p.status === "active" || p.status === "approved").length,
-    alerts: platforms.filter((p) => p.status !== "deleted" && hasAlert(p)).length,
+    alerts: platforms.filter((p) => p.status !== "deleted" && !p.deleted_at && hasAlert(p)).length,
+    deleted: deletedPlatforms.length,
+    losses: deletedPlatforms.reduce((s, p) => s + (p.package_price || 0), 0),
     revenue: platforms
       .filter((p) => (p.status === "active" || p.status === "approved") && p.payment_status === "paid")
       .reduce((s, p) => s + p.package_price, 0),
@@ -296,13 +335,14 @@ export default function Admin() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
           {[
             { label: "إجمالي المنصات", value: stats.total, icon: Users, color: "text-primary" },
             { label: "طلبات جديدة", value: stats.pending, icon: Calendar, color: "text-yellow-500" },
             { label: "منصات نشطة", value: stats.active, icon: CheckCircle, color: "text-green-500" },
             { label: "تحتاج انتباه", value: stats.alerts, icon: AlertTriangle, color: "text-orange-500" },
             { label: "إيراد شهري", value: stats.revenue + " ج", icon: TrendingUp, color: "text-primary" },
+            { label: "خسائر (محذوفة)", value: stats.losses + " ج", icon: AlertTriangle, color: "text-destructive" },
           ].map((s, i) => (
             <div key={i} className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
@@ -333,6 +373,7 @@ export default function Admin() {
             { k: "alerts", label: "⚠️ انتباه", count: stats.alerts },
             { k: "paused", label: "موقوفة" },
             { k: "all", label: "الكل" },
+            { k: "deleted", label: "🗑️ محذوفة", count: stats.deleted },
           ].map((t) => (
             <button
               key={t.k}
@@ -495,9 +536,26 @@ export default function Admin() {
                       {checkingId === p.id ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Sparkles className="w-4 h-4 ml-1" />}
                       فحص بـ AI
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => deletePlatform(p.id)} className="text-destructive hover:text-destructive">
-                      <Trash2 className="w-4 h-4" />
+                    <Button size="sm" variant="outline" onClick={() => changePackage(p)}>
+                      تغيير الباقة
                     </Button>
+                    {p.dashboard_password && (
+                      <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(p.dashboard_password!); toast.success("نسخ كلمة سر المدرس: " + p.dashboard_password); }}>
+                        🔑 كلمة السر
+                      </Button>
+                    )}
+                    {(p.status === "deleted" || p.deleted_at) ? (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => restorePlatform(p.id)}>↩️ استرجاع</Button>
+                        <Button size="sm" variant="ghost" onClick={() => purgePlatform(p.id)} className="text-destructive">
+                          <Trash2 className="w-4 h-4" /> نهائي
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" variant="ghost" onClick={() => deletePlatform(p.id)} className="text-destructive hover:text-destructive">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               );

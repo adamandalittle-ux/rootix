@@ -35,6 +35,47 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_feedback: {
+        Row: {
+          ai_classification: string | null
+          category: string
+          created_at: string
+          id: string
+          platform_id: string | null
+          platform_name: string | null
+          resolved: boolean
+          teacher_message: string
+        }
+        Insert: {
+          ai_classification?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          platform_id?: string | null
+          platform_name?: string | null
+          resolved?: boolean
+          teacher_message: string
+        }
+        Update: {
+          ai_classification?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          platform_id?: string | null
+          platform_name?: string | null
+          resolved?: boolean
+          teacher_message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_feedback_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content: {
         Row: {
           created_at: string
@@ -147,6 +188,10 @@ export type Database = {
           code: string
           config: Json
           created_at: string
+          dashboard_password: string | null
+          deleted_at: string | null
+          deleted_reason: string | null
+          gate_mode: string
           grade_levels: Json
           id: string
           package_price: number
@@ -172,6 +217,10 @@ export type Database = {
           code: string
           config?: Json
           created_at?: string
+          dashboard_password?: string | null
+          deleted_at?: string | null
+          deleted_reason?: string | null
+          gate_mode?: string
           grade_levels?: Json
           id?: string
           package_price?: number
@@ -197,6 +246,10 @@ export type Database = {
           code?: string
           config?: Json
           created_at?: string
+          dashboard_password?: string | null
+          deleted_at?: string | null
+          deleted_reason?: string | null
+          gate_mode?: string
           grade_levels?: Json
           id?: string
           package_price?: number
