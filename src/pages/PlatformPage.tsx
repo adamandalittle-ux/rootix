@@ -17,6 +17,8 @@ interface Platform {
   template_tier: string;
   status: string;
   config: any;
+  gate_mode?: string;
+  deleted_at?: string | null;
 }
 
 interface Student {
