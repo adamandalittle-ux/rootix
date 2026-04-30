@@ -288,11 +288,14 @@ export default function Admin() {
       );
     });
 
+  const deletedPlatforms = platforms.filter((p) => p.status === "deleted" || p.deleted_at);
   const stats = {
-    total: platforms.filter((p) => p.status !== "deleted").length,
+    total: platforms.filter((p) => p.status !== "deleted" && !p.deleted_at).length,
     pending: platforms.filter((p) => p.status === "pending").length,
     active: platforms.filter((p) => p.status === "active" || p.status === "approved").length,
-    alerts: platforms.filter((p) => p.status !== "deleted" && hasAlert(p)).length,
+    alerts: platforms.filter((p) => p.status !== "deleted" && !p.deleted_at && hasAlert(p)).length,
+    deleted: deletedPlatforms.length,
+    losses: deletedPlatforms.reduce((s, p) => s + (p.package_price || 0), 0),
     revenue: platforms
       .filter((p) => (p.status === "active" || p.status === "approved") && p.payment_status === "paid")
       .reduce((s, p) => s + p.package_price, 0),
