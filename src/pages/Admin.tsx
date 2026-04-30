@@ -267,8 +267,9 @@ export default function Admin() {
     (p.status === "active" && p.payment_status !== "paid");
 
   const filtered = platforms
-    .filter((p) => p.status !== "deleted")
     .filter((p) => {
+      if (filter === "deleted") return p.status === "deleted" || p.deleted_at;
+      if (p.status === "deleted" || p.deleted_at) return false;
       if (filter === "all") return true;
       if (filter === "pending") return p.status === "pending";
       if (filter === "approved") return p.status === "active" || p.status === "approved";
