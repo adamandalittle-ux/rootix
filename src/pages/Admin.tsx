@@ -342,6 +342,7 @@ export default function Admin() {
             { label: "منصات نشطة", value: stats.active, icon: CheckCircle, color: "text-green-500" },
             { label: "تحتاج انتباه", value: stats.alerts, icon: AlertTriangle, color: "text-orange-500" },
             { label: "إيراد شهري", value: stats.revenue + " ج", icon: TrendingUp, color: "text-primary" },
+            { label: "خسائر (محذوفة)", value: stats.losses + " ج", icon: AlertTriangle, color: "text-destructive" },
           ].map((s, i) => (
             <div key={i} className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
