@@ -154,11 +154,14 @@ export default function PlatformPage() {
       toast.error("املأ كل البيانات");
       return;
     }
+    const isOpenGate = platform.gate_mode === "open";
+    const accessCode = isOpenGate ? "OPEN-" + Math.random().toString(36).slice(2, 8).toUpperCase() : code.trim();
+
     const { data, error } = await supabase
       .from("students")
       .insert({
         platform_id: platform.id,
-        access_code: code.trim(),
+        access_code: accessCode,
         full_name: form.full_name,
         phone: form.phone,
         grade_level: form.grade_level,
@@ -169,15 +172,17 @@ export default function PlatformPage() {
       toast.error(error.message);
       return;
     }
-    await supabase
-      .from("student_codes")
-      .update({ is_used: true })
-      .eq("platform_id", platform.id)
-      .eq("code", code.trim());
+    if (!isOpenGate) {
+      await supabase
+        .from("student_codes")
+        .update({ is_used: true })
+        .eq("platform_id", platform.id)
+        .eq("code", code.trim());
+    }
     setStudent(data as any);
     localStorage.setItem(`rootix_student_${slug}`, JSON.stringify(data));
     setStep("dashboard");
-    toast.success("تم التسجيل بنجاح");
+    toast.success("تم التسجيل بنجاح، أهلاً بيك! 🎉");
   };
 
   const logout = () => {
