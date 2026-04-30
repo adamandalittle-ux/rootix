@@ -21,16 +21,32 @@ interface AIConfig {
   template_id: string;
 }
 
-function parseSuggestions(text: string): { clean: string; suggestions: string[] } {
-  const match = text.match(/SUGGESTIONS:\s*(\[[\s\S]*?\])/);
-  if (!match) return { clean: text, suggestions: [] };
-  try {
-    const suggestions = JSON.parse(match[1]);
-    const clean = text.replace(match[0], "").trim();
-    return { clean, suggestions: Array.isArray(suggestions) ? suggestions : [] };
-  } catch {
-    return { clean: text, suggestions: [] };
+type Swatch = { name: string; hex: string };
+
+function parseSuggestions(text: string): { clean: string; suggestions: string[]; swatches: Swatch[] } {
+  let clean = text;
+  let suggestions: string[] = [];
+  let swatches: Swatch[] = [];
+
+  const sMatch = clean.match(/SUGGESTIONS:\s*(\[[\s\S]*?\])/);
+  if (sMatch) {
+    try {
+      const parsed = JSON.parse(sMatch[1]);
+      if (Array.isArray(parsed)) suggestions = parsed;
+    } catch {}
+    clean = clean.replace(sMatch[0], "").trim();
   }
+
+  const cMatch = clean.match(/COLOR_SWATCH:\s*(\[[\s\S]*?\])/);
+  if (cMatch) {
+    try {
+      const parsed = JSON.parse(cMatch[1]);
+      if (Array.isArray(parsed)) swatches = parsed.filter((x: any) => x?.hex);
+    } catch {}
+    clean = clean.replace(cMatch[0], "").trim();
+  }
+
+  return { clean, suggestions, swatches };
 }
 
 function accumulateToolCall(delta: any, acc: { name?: string; args: string }) {
