@@ -587,6 +587,25 @@ export default function Builder() {
           </div>
         )}
 
+        {/* Color swatches (visual color picker) */}
+        {stage === "chat" && swatches.length > 0 && !loading && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-3">
+            {swatches.map((sw, i) => (
+              <button
+                key={i}
+                onClick={() => send(sw.name)}
+                className="rounded-xl border-2 border-border hover:border-primary p-3 flex items-center gap-3 transition-all active:scale-95 bg-card"
+              >
+                <span
+                  className="w-8 h-8 rounded-lg shrink-0 shadow-md"
+                  style={{ background: sw.hex, boxShadow: `0 0 16px ${sw.hex}50` }}
+                />
+                <span className="text-sm font-medium text-start truncate">{sw.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Suggestions (chat stage only) */}
         {stage === "chat" && suggestions.length > 0 && !loading && (
           <div className="flex flex-wrap gap-2 mb-3">
