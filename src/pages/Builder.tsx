@@ -169,6 +169,18 @@ export default function Builder() {
     setInput("");
     setLoading(true);
 
+    // Save teacher message as feedback (heuristic: only meaningful requests, skip 1-word answers)
+    const isRequest = trimmed.length > 12 &&
+      /(عايز|محتاج|ممكن|اقترح|ضيف|اعمل|غير|بدل|مش|مفيش|انيميشن|تأثير|لون|شكل|ميزة|خاصية|اضف|حذف|شيل|عدل|مشكلة|bug|غلط)/i.test(trimmed);
+    if (isRequest) {
+      // fire-and-forget; never block the chat
+      supabase.from("ai_feedback").insert({
+        teacher_message: trimmed,
+        category: /(غلط|مشكلة|bug|مش شغال|مش بيعمل)/i.test(trimmed) ? "complaint" : (/(اقترح|اعمل|ضيف|عايز ميزة|ممكن نضيف)/i.test(trimmed) ? "suggestion" : "request"),
+        ai_classification: /لون|color/i.test(trimmed) ? "color" : (/انيميشن|حركة/i.test(trimmed) ? "animation" : (/فيديو/i.test(trimmed) ? "video" : "general")),
+      }).then(() => {});
+    }
+
     let assistantSoFar = "";
     const toolAcc = { name: undefined as string | undefined, args: "" };
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
