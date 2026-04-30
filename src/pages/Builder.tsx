@@ -19,6 +19,26 @@ interface AIConfig {
   slug: string;
   mood: string;
   template_id: string;
+  logo_text?: string;
+  welcome_message?: string;
+  videos_label?: string;
+  exams_label?: string;
+  pdf_label?: string;
+  questions_label?: string;
+  button_shape?: string;
+  animation_level?: string;
+  watermark_enabled?: boolean;
+  video_speeds?: boolean;
+  prevent_download?: boolean;
+  student_navbar_visible?: boolean;
+  instant_exam_results?: boolean;
+  content_locked_by_grade?: boolean;
+  new_badge_enabled?: boolean;
+  default_gate_mode?: "open" | "code";
+  allow_pdf_download?: boolean;
+  show_student_count?: boolean;
+  leaderboard_enabled?: boolean;
+  about_teacher_page?: boolean;
 }
 
 type Swatch = { name: string; hex: string };
