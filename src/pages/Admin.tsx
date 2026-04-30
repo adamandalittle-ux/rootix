@@ -373,6 +373,7 @@ export default function Admin() {
             { k: "alerts", label: "⚠️ انتباه", count: stats.alerts },
             { k: "paused", label: "موقوفة" },
             { k: "all", label: "الكل" },
+            { k: "deleted", label: "🗑️ محذوفة", count: stats.deleted },
           ].map((t) => (
             <button
               key={t.k}
