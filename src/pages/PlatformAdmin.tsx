@@ -429,11 +429,16 @@ function CodesManager({ platform, codes, refresh }: any) {
     if (count < 1 || count > 5000) return toast.error("العدد لازم بين 1 و 5000");
     setGenerating(true);
     try {
-      const newCodes = Array.from({ length: count }, () => ({
-        platform_id: platform.id,
-        code: Math.random().toString(36).slice(2, 8).toUpperCase(),
-        is_used: false,
-      }));
+      // Format: ab + 3-5 digits (e.g., ab847, ab12345). Easy to remember & type.
+      const used = new Set<string>();
+      const newCodes = Array.from({ length: count }, () => {
+        let code = "";
+        do {
+          code = "ab" + Math.floor(100 + Math.random() * 99900);
+        } while (used.has(code));
+        used.add(code);
+        return { platform_id: platform.id, code, is_used: false };
+      });
       const { error } = await supabase.from("student_codes").insert(newCodes);
       if (error) throw error;
       toast.success(`تم توليد ${count} كود`);
