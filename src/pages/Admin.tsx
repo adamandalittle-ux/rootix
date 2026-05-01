@@ -154,13 +154,39 @@ export default function Admin() {
   };
 
   const loadStudentCounts = async () => {
-    const { data } = await supabase.from("students").select("platform_id");
-    if (!data) return;
+    const { data: studentsData } = await supabase.from("students").select("platform_id, created_at");
+    if (!studentsData) return;
     const counts: StudentCounts = {};
-    for (const s of data as any[]) {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    let todayCount = 0, weekCount = 0;
+    for (const s of studentsData as any[]) {
       counts[s.platform_id] = (counts[s.platform_id] || 0) + 1;
+      const t = new Date(s.created_at).getTime();
+      if (now - t < dayMs) todayCount++;
+      if (now - t < 7 * dayMs) weekCount++;
     }
     setStudentCounts(counts);
+
+    // Global stats: content count, exam results avg
+    const [{ count: contentCount }, { data: examResults }] = await Promise.all([
+      supabase.from("content").select("*", { count: "exact", head: true }),
+      supabase.from("exam_results").select("score,total"),
+    ]);
+    const totalExams = examResults?.length || 0;
+    const avgScore = totalExams > 0
+      ? Math.round((examResults!.reduce((s: number, r: any) => s + (r.total ? (r.score / r.total) * 100 : 0), 0) / totalExams))
+      : 0;
+
+    setGlobalStats((prev) => ({
+      ...prev,
+      totalStudents: studentsData.length,
+      totalContent: contentCount || 0,
+      totalExams,
+      avgScore,
+      todayStudents: todayCount,
+      weekStudents: weekCount,
+    }));
   };
 
   const login = (e: React.FormEvent) => {
