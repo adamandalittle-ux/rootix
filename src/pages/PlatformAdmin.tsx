@@ -1,11 +1,11 @@
 // ROOTIX Teacher Dashboard v2 — direct access, gate toggle, password setter, PDF codes, package upgrade request
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen, Lock, Unlock, Settings as Cog, Download, TrendingUp, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen, Lock, Unlock, Settings as Cog, Download, TrendingUp, Eye, EyeOff, Sparkles, X, Send, AlertTriangle } from "lucide-react";
 import jsPDF from "jspdf";
 
 export default function PlatformAdmin() {
