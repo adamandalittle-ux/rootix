@@ -107,7 +107,14 @@ Deno.serve(async (req) => {
       .neq("id", platform_id);
     if (dupes && dupes.length > 0) {
       result.issues.push({ code: "SLUG_DUPLICATE", severity: "error", msg: "الرابط مستخدم في منصة أخرى — هيتم تغييره", fixed: true });
-      updates.slug = targetSlug + "-" + Math.random().toString(36).slice(2, 5);
+      // Append small numeric suffix to keep URL clean and short
+      let candidate = targetSlug;
+      for (let i = 2; i < 50; i++) {
+        candidate = `${targetSlug}-${i}`;
+        const { data: stillDup } = await supabase.from("platforms").select("id").eq("slug", candidate).maybeSingle();
+        if (!stillDup) break;
+      }
+      updates.slug = candidate;
       result.fixes_applied.push(`الرابط النهائي: "${updates.slug}"`);
     }
 
