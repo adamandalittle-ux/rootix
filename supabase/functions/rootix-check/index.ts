@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
       let s = p.slug.toLowerCase().split("").map((c: string) => AR_TO_EN[c] ?? c).join("");
       s = s.replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
       if (!s || s.length < 2) s = "platform";
-      s = s.slice(0, 35) + "-" + Math.random().toString(36).slice(2, 5);
+      if (s.length > 25) s = s.slice(0, 25).replace(/-$/, "");
       updates.slug = s;
       result.fixes_applied.push(`الرابط اتغير لـ "${s}"`);
     }
@@ -107,7 +107,14 @@ Deno.serve(async (req) => {
       .neq("id", platform_id);
     if (dupes && dupes.length > 0) {
       result.issues.push({ code: "SLUG_DUPLICATE", severity: "error", msg: "الرابط مستخدم في منصة أخرى — هيتم تغييره", fixed: true });
-      updates.slug = targetSlug + "-" + Math.random().toString(36).slice(2, 5);
+      // Append small numeric suffix to keep URL clean and short
+      let candidate = targetSlug;
+      for (let i = 2; i < 50; i++) {
+        candidate = `${targetSlug}-${i}`;
+        const { data: stillDup } = await supabase.from("platforms").select("id").eq("slug", candidate).maybeSingle();
+        if (!stillDup) break;
+      }
+      updates.slug = candidate;
       result.fixes_applied.push(`الرابط النهائي: "${updates.slug}"`);
     }
 

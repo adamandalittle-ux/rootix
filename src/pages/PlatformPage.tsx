@@ -155,7 +155,7 @@ export default function PlatformPage() {
       return;
     }
     const isOpenGate = platform.gate_mode === "open";
-    const accessCode = isOpenGate ? "OPEN-" + Math.random().toString(36).slice(2, 8).toUpperCase() : code.trim();
+    const accessCode = isOpenGate ? "ab" + Math.floor(100 + Math.random() * 99900) : code.trim();
 
     const { data, error } = await supabase
       .from("students")
