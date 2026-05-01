@@ -103,16 +103,21 @@ export default function PlatformAdmin() {
   const overCapacityBy = Math.max(0, students.length - platform.package_students);
 
   return (
-    <div className="min-h-screen">
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <nav className="border-b border-border/50 backdrop-blur-xl bg-card/70 sticky top-0 z-40">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div>
-            <div className="font-bold text-sm">{platform.config?.platform_name}</div>
-            <div className="text-xs text-muted-foreground">لوحة تحكم — {platform.teacher_name}</div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/40 flex items-center justify-center font-bold text-primary-foreground shadow-lg shadow-primary/20">
+              {platform.config?.logo_text || platform.teacher_name?.[0] || "R"}
+            </div>
+            <div>
+              <div className="font-bold text-sm leading-tight">{platform.config?.platform_name}</div>
+              <div className="text-xs text-muted-foreground">أ/ {platform.teacher_name}</div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-1 rounded-full ${platform.gate_mode === "open" ? "bg-green-500/10 text-green-500" : "bg-yellow-500/10 text-yellow-500"}`}>
-              {platform.gate_mode === "open" ? "مفتوحة" : "بكود"}
+            <span className={`text-xs px-3 py-1 rounded-full font-medium ${platform.gate_mode === "open" ? "bg-green-500/15 text-green-500" : "bg-yellow-500/15 text-yellow-500"}`}>
+              {platform.gate_mode === "open" ? "🔓 مفتوحة" : "🔒 بكود"}
             </span>
           </div>
         </div>
@@ -120,7 +125,7 @@ export default function PlatformAdmin() {
 
       <div className="container mx-auto px-4 py-6">
         {overCapacityBy > 0 && (
-          <div className="mb-4 rounded-xl border-2 border-orange-500/40 bg-orange-500/10 p-4 flex items-center gap-3">
+          <div className="mb-4 rounded-2xl border-2 border-orange-500/40 bg-gradient-to-l from-orange-500/15 to-orange-500/5 p-4 flex items-center gap-3">
             <TrendingUp className="w-6 h-6 text-orange-500 shrink-0" />
             <div className="flex-1">
               <div className="font-bold text-sm">دخل {students.length} طالب — تجاوزت باقتك بـ {overCapacityBy}</div>
@@ -147,8 +152,8 @@ export default function PlatformAdmin() {
             <button
               key={t.k}
               onClick={() => setTab(t.k as any)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 ${
-                tab === t.k ? "border-primary text-foreground" : "border-transparent text-muted-foreground"
+              className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 transition-colors ${
+                tab === t.k ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <t.icon className="w-3.5 h-3.5" />{t.label}
@@ -161,6 +166,9 @@ export default function PlatformAdmin() {
         {tab === "codes" && <CodesManager platform={platform} codes={codes} refresh={refreshAll} />}
         {tab === "settings" && <SettingsTab platform={platform} reload={load} />}
       </div>
+
+      {/* Rooty AI Floating Assistant */}
+      <RootyChat platform={platform} />
     </div>
   );
 }
