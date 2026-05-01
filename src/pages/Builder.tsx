@@ -272,12 +272,15 @@ export default function Builder() {
   const createDraft = async (cfg: AIConfig) => {
     const code = genCode();
     const template = getTemplateById(cfg.template_id);
-    // Ensure slug is unique even against deleted platforms (blacklist)
-    let slug = cfg.slug;
-    for (let i = 0; i < 5; i++) {
+    // Ensure slug is unique — append small number suffix only if conflict (keeps URLs short & clean)
+    const baseSlug = cfg.slug;
+    let slug = baseSlug;
+    let attempt = 2;
+    while (attempt < 50) {
       const { data: existing } = await supabase.from("platforms").select("id").eq("slug", slug).maybeSingle();
       if (!existing) break;
-      slug = forceEnglishSlug(cfg.platform_name);
+      slug = `${baseSlug}-${attempt}`;
+      attempt++;
     }
     cfg.slug = slug;
 
