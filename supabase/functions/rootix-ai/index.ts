@@ -160,14 +160,16 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        // Flash-lite = أسرع 2x وأرخص — ممتاز للمحاورة القصيرة
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           ...messages,
         ],
         tools: [SAVE_PLATFORM_TOOL],
         stream: true,
-        temperature: 0.6,
+        temperature: 0.4,
+        max_tokens: 250,
       }),
     });
 
