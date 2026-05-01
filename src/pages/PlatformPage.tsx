@@ -307,19 +307,30 @@ export default function PlatformPage() {
   }
 
   return (
-    <div className="min-h-screen" style={themeStyle}>
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
+    <div className="min-h-screen relative" style={themeStyle}>
+      {/* Decorative gradient background */}
+      <div
+        className="absolute inset-0 -z-10 opacity-40 pointer-events-none"
+        style={{
+          background: `radial-gradient(circle at 20% 0%, ${primary}33 0%, transparent 45%), radial-gradient(circle at 80% 100%, ${accent}22 0%, transparent 50%)`,
+        }}
+      />
+
+      <nav className="border-b border-border/50 backdrop-blur-xl bg-card/70 sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-sm"
-              style={{ background: `linear-gradient(135deg, ${primary}, ${accent})` }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-lg"
+              style={{
+                background: `linear-gradient(135deg, ${primary}, ${accent})`,
+                boxShadow: `0 8px 24px -8px ${primary}88`,
+              }}
             >
               {cfg.logo_text || platform.teacher_name?.[0] || "R"}
             </div>
             <div>
-              <div className="font-semibold text-sm">{cfg.platform_name || platform.teacher_name}</div>
-              <div className="text-xs text-muted-foreground">{student?.full_name}</div>
+              <div className="font-bold text-sm leading-tight">{cfg.platform_name || platform.teacher_name}</div>
+              <div className="text-xs text-muted-foreground">أهلاً، {student?.full_name?.split(" ")[0]} 👋</div>
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={logout}>
@@ -329,20 +340,39 @@ export default function PlatformPage() {
       </nav>
 
       <div className="container mx-auto px-4 py-6">
+        {/* Welcome banner */}
+        <div
+          className="mb-6 rounded-3xl p-6 md:p-8 relative overflow-hidden border"
+          style={{
+            background: `linear-gradient(135deg, ${primary}18, ${accent}10)`,
+            borderColor: `${primary}40`,
+          }}
+        >
+          <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full opacity-20 blur-3xl" style={{ background: primary }} />
+          <div className="relative">
+            <div className="text-xs uppercase tracking-wider opacity-70 mb-1">منصة {platform.subject}</div>
+            <h1 className="text-2xl md:text-3xl font-black mb-2">{cfg.welcome_message || `أهلاً بيك في منصة ${platform.teacher_name}`}</h1>
+            <p className="text-sm text-muted-foreground">صفك: {student?.grade_level} • {content.length} محتوى متاح</p>
+          </div>
+        </div>
+
         {/* Tabs */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
           {tabs.map((t) => (
             <button
               key={t.k}
               onClick={() => setActiveTab(t.k)}
-              className="rounded-xl border p-4 text-center transition-all"
+              className="rounded-2xl border p-4 text-center transition-all hover:scale-[1.02] hover:shadow-lg"
               style={{
                 borderColor: activeTab === t.k ? primary : "hsl(var(--border))",
-                background: activeTab === t.k ? `${primary}15` : "hsl(var(--card))",
+                background: activeTab === t.k
+                  ? `linear-gradient(135deg, ${primary}25, ${accent}15)`
+                  : "hsl(var(--card))",
+                boxShadow: activeTab === t.k ? `0 8px 24px -12px ${primary}66` : undefined,
               }}
             >
-              <t.icon className="w-5 h-5 mx-auto mb-2" style={{ color: activeTab === t.k ? primary : undefined }} />
-              <div className="text-sm font-medium">{t.label}</div>
+              <t.icon className="w-6 h-6 mx-auto mb-2" style={{ color: activeTab === t.k ? primary : undefined }} />
+              <div className="text-sm font-semibold">{t.label}</div>
             </button>
           ))}
         </div>

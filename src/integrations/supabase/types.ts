@@ -271,6 +271,33 @@ export type Database = {
         }
         Relationships: []
       }
+      rooty_actions: {
+        Row: {
+          action_type: string
+          created_at: string
+          description: string | null
+          id: string
+          payload: Json | null
+          platform_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          payload?: Json | null
+          platform_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          payload?: Json | null
+          platform_id?: string
+        }
+        Relationships: []
+      }
       student_codes: {
         Row: {
           code: string

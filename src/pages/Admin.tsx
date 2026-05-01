@@ -44,6 +44,7 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [studentCounts, setStudentCounts] = useState<StudentCounts>({});
+  const [globalStats, setGlobalStats] = useState({ totalStudents: 0, totalContent: 0, totalExams: 0, avgScore: 0, todayStudents: 0, weekStudents: 0, totalRevenue: 0 });
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "paused" | "alerts" | "deleted">("pending");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -153,13 +154,39 @@ export default function Admin() {
   };
 
   const loadStudentCounts = async () => {
-    const { data } = await supabase.from("students").select("platform_id");
-    if (!data) return;
+    const { data: studentsData } = await supabase.from("students").select("platform_id, created_at");
+    if (!studentsData) return;
     const counts: StudentCounts = {};
-    for (const s of data as any[]) {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    let todayCount = 0, weekCount = 0;
+    for (const s of studentsData as any[]) {
       counts[s.platform_id] = (counts[s.platform_id] || 0) + 1;
+      const t = new Date(s.created_at).getTime();
+      if (now - t < dayMs) todayCount++;
+      if (now - t < 7 * dayMs) weekCount++;
     }
     setStudentCounts(counts);
+
+    // Global stats: content count, exam results avg
+    const [{ count: contentCount }, { data: examResults }] = await Promise.all([
+      supabase.from("content").select("*", { count: "exact", head: true }),
+      supabase.from("exam_results").select("score,total"),
+    ]);
+    const totalExams = examResults?.length || 0;
+    const avgScore = totalExams > 0
+      ? Math.round((examResults!.reduce((s: number, r: any) => s + (r.total ? (r.score / r.total) * 100 : 0), 0) / totalExams))
+      : 0;
+
+    setGlobalStats((prev) => ({
+      ...prev,
+      totalStudents: studentsData.length,
+      totalContent: contentCount || 0,
+      totalExams,
+      avgScore,
+      todayStudents: todayCount,
+      weekStudents: weekCount,
+    }));
   };
 
   const login = (e: React.FormEvent) => {
@@ -334,14 +361,38 @@ export default function Admin() {
           </button>
         )}
 
-        {/* Stats */}
+        {/* Hero stats — company-wide */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-primary/5 p-5">
+            <div className="text-xs text-muted-foreground mb-1">💰 الإيراد الشهري</div>
+            <div className="text-3xl font-black text-primary">{stats.revenue.toLocaleString("ar-EG")}<span className="text-base mr-1">ج</span></div>
+            <div className="text-xs text-muted-foreground mt-1">من {stats.active} منصة نشطة</div>
+          </div>
+          <div className="rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-500/15 to-green-500/5 p-5">
+            <div className="text-xs text-muted-foreground mb-1">👥 إجمالي الطلاب</div>
+            <div className="text-3xl font-black text-green-500">{globalStats.totalStudents.toLocaleString("ar-EG")}</div>
+            <div className="text-xs text-muted-foreground mt-1">+{globalStats.todayStudents} النهارده • +{globalStats.weekStudents} الأسبوع</div>
+          </div>
+          <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/15 to-blue-500/5 p-5">
+            <div className="text-xs text-muted-foreground mb-1">📚 إجمالي المحتوى</div>
+            <div className="text-3xl font-black text-blue-500">{globalStats.totalContent.toLocaleString("ar-EG")}</div>
+            <div className="text-xs text-muted-foreground mt-1">فيديو + PDF + امتحانات</div>
+          </div>
+          <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 to-purple-500/5 p-5">
+            <div className="text-xs text-muted-foreground mb-1">📝 امتحانات حُلت</div>
+            <div className="text-3xl font-black text-purple-500">{globalStats.totalExams.toLocaleString("ar-EG")}</div>
+            <div className="text-xs text-muted-foreground mt-1">متوسط النتيجة: {globalStats.avgScore}%</div>
+          </div>
+        </div>
+
+        {/* Operational stats */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
           {[
             { label: "إجمالي المنصات", value: stats.total, icon: Users, color: "text-primary" },
             { label: "طلبات جديدة", value: stats.pending, icon: Calendar, color: "text-yellow-500" },
             { label: "منصات نشطة", value: stats.active, icon: CheckCircle, color: "text-green-500" },
             { label: "تحتاج انتباه", value: stats.alerts, icon: AlertTriangle, color: "text-orange-500" },
-            { label: "إيراد شهري", value: stats.revenue + " ج", icon: TrendingUp, color: "text-primary" },
+            { label: "غير مدفوعة", value: platforms.filter(p => (p.status === "active" || p.status === "approved") && p.payment_status !== "paid").length, icon: AlertTriangle, color: "text-destructive" },
             { label: "خسائر (محذوفة)", value: stats.losses + " ج", icon: AlertTriangle, color: "text-destructive" },
           ].map((s, i) => (
             <div key={i} className="rounded-xl border border-border bg-card p-4">
@@ -353,6 +404,38 @@ export default function Admin() {
             </div>
           ))}
         </div>
+
+        {/* Top performers */}
+        {(() => {
+          const topPlatforms = [...platforms]
+            .filter(p => p.status !== "deleted" && !p.deleted_at)
+            .map(p => ({ ...p, _students: studentCounts[p.id] || 0 }))
+            .sort((a, b) => b._students - a._students)
+            .slice(0, 5);
+          if (topPlatforms.length === 0) return null;
+          return (
+            <div className="mb-6 rounded-2xl border border-border bg-card p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className="w-4 h-4 text-primary" />
+                <h3 className="font-bold text-sm">🏆 أعلى 5 منصات بعدد الطلاب</h3>
+              </div>
+              <div className="space-y-2">
+                {topPlatforms.map((p, i) => (
+                  <div key={p.id} className="flex items-center gap-3">
+                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? "bg-yellow-500/20 text-yellow-500" : i === 1 ? "bg-gray-400/20 text-gray-400" : i === 2 ? "bg-orange-500/20 text-orange-500" : "bg-muted text-muted-foreground"}`}>
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{p.config?.platform_name || p.teacher_name}</div>
+                      <div className="text-xs text-muted-foreground">{p.subject} • {p.teacher_name}</div>
+                    </div>
+                    <div className="text-sm font-bold">{p._students} طالب</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Search */}
         <div className="mb-4 relative">

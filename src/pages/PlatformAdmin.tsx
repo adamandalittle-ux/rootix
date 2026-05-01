@@ -1,11 +1,11 @@
 // ROOTIX Teacher Dashboard v2 — direct access, gate toggle, password setter, PDF codes, package upgrade request
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen, Lock, Unlock, Settings as Cog, Download, TrendingUp, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen, Lock, Unlock, Settings as Cog, Download, TrendingUp, Eye, EyeOff, Sparkles, X, Send, AlertTriangle } from "lucide-react";
 import jsPDF from "jspdf";
 
 export default function PlatformAdmin() {
@@ -103,16 +103,21 @@ export default function PlatformAdmin() {
   const overCapacityBy = Math.max(0, students.length - platform.package_students);
 
   return (
-    <div className="min-h-screen">
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <nav className="border-b border-border/50 backdrop-blur-xl bg-card/70 sticky top-0 z-40">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div>
-            <div className="font-bold text-sm">{platform.config?.platform_name}</div>
-            <div className="text-xs text-muted-foreground">لوحة تحكم — {platform.teacher_name}</div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/40 flex items-center justify-center font-bold text-primary-foreground shadow-lg shadow-primary/20">
+              {platform.config?.logo_text || platform.teacher_name?.[0] || "R"}
+            </div>
+            <div>
+              <div className="font-bold text-sm leading-tight">{platform.config?.platform_name}</div>
+              <div className="text-xs text-muted-foreground">أ/ {platform.teacher_name}</div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-1 rounded-full ${platform.gate_mode === "open" ? "bg-green-500/10 text-green-500" : "bg-yellow-500/10 text-yellow-500"}`}>
-              {platform.gate_mode === "open" ? "مفتوحة" : "بكود"}
+            <span className={`text-xs px-3 py-1 rounded-full font-medium ${platform.gate_mode === "open" ? "bg-green-500/15 text-green-500" : "bg-yellow-500/15 text-yellow-500"}`}>
+              {platform.gate_mode === "open" ? "🔓 مفتوحة" : "🔒 بكود"}
             </span>
           </div>
         </div>
@@ -120,7 +125,7 @@ export default function PlatformAdmin() {
 
       <div className="container mx-auto px-4 py-6">
         {overCapacityBy > 0 && (
-          <div className="mb-4 rounded-xl border-2 border-orange-500/40 bg-orange-500/10 p-4 flex items-center gap-3">
+          <div className="mb-4 rounded-2xl border-2 border-orange-500/40 bg-gradient-to-l from-orange-500/15 to-orange-500/5 p-4 flex items-center gap-3">
             <TrendingUp className="w-6 h-6 text-orange-500 shrink-0" />
             <div className="flex-1">
               <div className="font-bold text-sm">دخل {students.length} طالب — تجاوزت باقتك بـ {overCapacityBy}</div>
@@ -147,8 +152,8 @@ export default function PlatformAdmin() {
             <button
               key={t.k}
               onClick={() => setTab(t.k as any)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 ${
-                tab === t.k ? "border-primary text-foreground" : "border-transparent text-muted-foreground"
+              className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 transition-colors ${
+                tab === t.k ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <t.icon className="w-3.5 h-3.5" />{t.label}
@@ -161,6 +166,9 @@ export default function PlatformAdmin() {
         {tab === "codes" && <CodesManager platform={platform} codes={codes} refresh={refreshAll} />}
         {tab === "settings" && <SettingsTab platform={platform} reload={load} />}
       </div>
+
+      {/* Rooty AI Floating Assistant */}
+      <RootyChat platform={platform} />
     </div>
   );
 }
@@ -548,5 +556,162 @@ function CodesManager({ platform, codes, refresh }: any) {
         )}
       </div>
     </div>
+  );
+}
+
+// ============================================================
+// Rooty — مساعد المدرس الشخصي (5 actions / day, unlimited chat)
+// ============================================================
+function RootyChat({ platform }: { platform: any }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+    { role: "assistant", content: `أهلاً أ/ ${platform.teacher_name} 👋\nأنا Rooty، مساعدك الشخصي. أقدر أحط لك أسئلة، امتحانات، فيديوهات، PDF (5 أعمال في اليوم) — ونتكلم نصايح براحتنا.\nقولي تحب أساعدك في إيه؟` },
+  ]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, busy]);
+
+  // Load today's used count on open
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const { count } = await supabase
+        .from("rooty_actions")
+        .select("*", { count: "exact", head: true })
+        .eq("platform_id", platform.id)
+        .gte("created_at", start.toISOString());
+      setRemaining(Math.max(0, 5 - (count || 0)));
+    })();
+  }, [open, platform.id]);
+
+  const send = async () => {
+    if (!input.trim() || busy) return;
+    const userMsg = { role: "user" as const, content: input.trim() };
+    const next = [...messages, userMsg];
+    setMessages(next);
+    setInput("");
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rooty-assistant", {
+        body: { platform_id: platform.id, messages: next },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const actionsLine = data.actions?.length
+        ? `\n\n${data.actions.filter((a: any) => a.ok).map((a: any) => `✅ تمت إضافة: ${a.title}`).join("\n")}`
+        : "";
+      setMessages([...next, { role: "assistant", content: (data.reply || "تمام ✅") + actionsLine }]);
+      setRemaining(data.remaining_today ?? remaining);
+      if (data.actions?.some((a: any) => a.ok)) {
+        toast.success("Rooty نفذ العمل ✅");
+      }
+    } catch (e: any) {
+      setMessages([...next, { role: "assistant", content: "حصل خطأ: " + (e.message || "غير معروف") }]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Floating button */}
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          className="fixed bottom-6 left-6 z-50 group"
+          aria-label="افتح Rooty"
+        >
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-primary/40 blur-xl group-hover:blur-2xl transition-all" />
+            <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-primary via-primary to-primary/70 flex items-center justify-center shadow-2xl shadow-primary/40 hover:scale-110 transition-transform">
+              <Sparkles className="w-7 h-7 text-primary-foreground" />
+            </div>
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+          </div>
+          <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-xs bg-card border border-border px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+            🤖 كلم Rooty
+          </span>
+        </button>
+      )}
+
+      {/* Chat panel */}
+      {open && (
+        <div className="fixed bottom-6 left-6 z-50 w-[min(92vw,420px)] h-[min(80vh,640px)] rounded-3xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+          {/* Header */}
+          <div className="bg-gradient-to-l from-primary to-primary/70 text-primary-foreground p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold leading-tight">Rooty</div>
+                <div className="text-xs opacity-90">مساعدك الشخصي</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {remaining !== null && (
+                <span className="text-xs bg-white/20 px-2.5 py-1 rounded-full font-medium">
+                  أعمال: {remaining}/5
+                </span>
+              )}
+              <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Disclaimer */}
+          <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-3 py-2 flex items-start gap-2 text-[11px] text-yellow-700 dark:text-yellow-400 leading-snug">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>قد تظهر أخطاء مع Rooty، فا ينصح بعدم استخدامه في كتابة الأسئلة في المنصة بتاعت حضرتك بشكل أساسي. راجع كل عمل بعد ما يخلص.</span>
+          </div>
+
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
+                <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                  m.role === "user"
+                    ? "bg-muted text-foreground rounded-br-sm"
+                    : "bg-gradient-to-bl from-primary/15 to-primary/5 border border-primary/20 text-foreground rounded-bl-sm"
+                }`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {busy && (
+              <div className="flex justify-end">
+                <div className="bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3 flex gap-1">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" />
+                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0.15s" }} />
+                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0.3s" }} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div className="border-t border-border p-3 flex gap-2 bg-background/50">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
+              placeholder={remaining === 0 ? "خلصت أعمال النهارده، نتكلم بس..." : "اكتب رسالتك لـ Rooty..."}
+              disabled={busy}
+              className="flex-1"
+            />
+            <Button onClick={send} disabled={busy || !input.trim()} size="icon" className="bg-primary text-primary-foreground shrink-0">
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
