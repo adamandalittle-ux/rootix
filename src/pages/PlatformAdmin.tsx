@@ -558,3 +558,160 @@ function CodesManager({ platform, codes, refresh }: any) {
     </div>
   );
 }
+
+// ============================================================
+// Rooty — مساعد المدرس الشخصي (5 actions / day, unlimited chat)
+// ============================================================
+function RootyChat({ platform }: { platform: any }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+    { role: "assistant", content: `أهلاً أ/ ${platform.teacher_name} 👋\nأنا Rooty، مساعدك الشخصي. أقدر أحط لك أسئلة، امتحانات، فيديوهات، PDF (5 أعمال في اليوم) — ونتكلم نصايح براحتنا.\nقولي تحب أساعدك في إيه؟` },
+  ]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, busy]);
+
+  // Load today's used count on open
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const { count } = await supabase
+        .from("rooty_actions")
+        .select("*", { count: "exact", head: true })
+        .eq("platform_id", platform.id)
+        .gte("created_at", start.toISOString());
+      setRemaining(Math.max(0, 5 - (count || 0)));
+    })();
+  }, [open, platform.id]);
+
+  const send = async () => {
+    if (!input.trim() || busy) return;
+    const userMsg = { role: "user" as const, content: input.trim() };
+    const next = [...messages, userMsg];
+    setMessages(next);
+    setInput("");
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rooty-assistant", {
+        body: { platform_id: platform.id, messages: next },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const actionsLine = data.actions?.length
+        ? `\n\n${data.actions.filter((a: any) => a.ok).map((a: any) => `✅ تمت إضافة: ${a.title}`).join("\n")}`
+        : "";
+      setMessages([...next, { role: "assistant", content: (data.reply || "تمام ✅") + actionsLine }]);
+      setRemaining(data.remaining_today ?? remaining);
+      if (data.actions?.some((a: any) => a.ok)) {
+        toast.success("Rooty نفذ العمل ✅");
+      }
+    } catch (e: any) {
+      setMessages([...next, { role: "assistant", content: "حصل خطأ: " + (e.message || "غير معروف") }]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Floating button */}
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          className="fixed bottom-6 left-6 z-50 group"
+          aria-label="افتح Rooty"
+        >
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-primary/40 blur-xl group-hover:blur-2xl transition-all" />
+            <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-primary via-primary to-primary/70 flex items-center justify-center shadow-2xl shadow-primary/40 hover:scale-110 transition-transform">
+              <Sparkles className="w-7 h-7 text-primary-foreground" />
+            </div>
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+          </div>
+          <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-xs bg-card border border-border px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+            🤖 كلم Rooty
+          </span>
+        </button>
+      )}
+
+      {/* Chat panel */}
+      {open && (
+        <div className="fixed bottom-6 left-6 z-50 w-[min(92vw,420px)] h-[min(80vh,640px)] rounded-3xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+          {/* Header */}
+          <div className="bg-gradient-to-l from-primary to-primary/70 text-primary-foreground p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold leading-tight">Rooty</div>
+                <div className="text-xs opacity-90">مساعدك الشخصي</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {remaining !== null && (
+                <span className="text-xs bg-white/20 px-2.5 py-1 rounded-full font-medium">
+                  أعمال: {remaining}/5
+                </span>
+              )}
+              <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Disclaimer */}
+          <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-3 py-2 flex items-start gap-2 text-[11px] text-yellow-700 dark:text-yellow-400 leading-snug">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>قد تظهر أخطاء مع Rooty، فا ينصح بعدم استخدامه في كتابة الأسئلة في المنصة بتاعت حضرتك بشكل أساسي. راجع كل عمل بعد ما يخلص.</span>
+          </div>
+
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
+                <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                  m.role === "user"
+                    ? "bg-muted text-foreground rounded-br-sm"
+                    : "bg-gradient-to-bl from-primary/15 to-primary/5 border border-primary/20 text-foreground rounded-bl-sm"
+                }`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {busy && (
+              <div className="flex justify-end">
+                <div className="bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3 flex gap-1">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" />
+                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0.15s" }} />
+                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0.3s" }} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div className="border-t border-border p-3 flex gap-2 bg-background/50">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
+              placeholder={remaining === 0 ? "خلصت أعمال النهارده، نتكلم بس..." : "اكتب رسالتك لـ Rooty..."}
+              disabled={busy}
+              className="flex-1"
+            />
+            <Button onClick={send} disabled={busy || !input.trim()} size="icon" className="bg-primary text-primary-foreground shrink-0">
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
