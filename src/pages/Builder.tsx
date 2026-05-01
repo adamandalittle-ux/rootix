@@ -92,14 +92,15 @@ const AR_TO_EN: Record<string, string> = {
   "ع":"a","غ":"gh","ف":"f","ق":"q","ك":"k","ل":"l","م":"m","ن":"n","ه":"h","و":"w","ي":"y","ى":"a","ة":"a","ئ":"e","ؤ":"o"," ":"-",
 };
 function forceEnglishSlug(input: string): string {
-  let s = (input || "").toLowerCase();
+  let s = (input || "").toLowerCase().trim();
   // transliterate any Arabic chars
   s = s.split("").map((c) => AR_TO_EN[c] ?? c).join("");
   // keep only a-z, 0-9, dashes
   s = s.replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
   if (!s || s.length < 2) s = "platform";
-  if (s.length > 35) s = s.slice(0, 35).replace(/-$/, "");
-  return s + "-" + Math.random().toString(36).slice(2, 5);
+  // Keep slugs short & clean — max 25 chars, no random suffix (uniqueness handled at insert)
+  if (s.length > 25) s = s.slice(0, 25).replace(/-$/, "");
+  return s;
 }
 
 function genCode(): string {
