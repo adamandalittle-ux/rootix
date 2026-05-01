@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
       let s = p.slug.toLowerCase().split("").map((c: string) => AR_TO_EN[c] ?? c).join("");
       s = s.replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
       if (!s || s.length < 2) s = "platform";
-      s = s.slice(0, 35) + "-" + Math.random().toString(36).slice(2, 5);
+      if (s.length > 25) s = s.slice(0, 25).replace(/-$/, "");
       updates.slug = s;
       result.fixes_applied.push(`الرابط اتغير لـ "${s}"`);
     }
