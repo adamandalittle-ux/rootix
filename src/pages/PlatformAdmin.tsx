@@ -147,6 +147,7 @@ export default function PlatformAdmin() {
             { k: "content", label: "المحتوى", icon: FileText },
             { k: "students", label: "الطلاب", icon: Users },
             { k: "codes", label: "الأكواد", icon: KeyRound },
+            { k: "live", label: "بث مباشر", icon: Radio },
             { k: "settings", label: "الإعدادات", icon: Cog },
           ].map((t) => (
             <button
@@ -154,9 +155,10 @@ export default function PlatformAdmin() {
               onClick={() => setTab(t.k as any)}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 transition-colors ${
                 tab === t.k ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
+              } ${t.k === "live" && platform.live_active ? "text-red-500" : ""}`}
             >
-              <t.icon className="w-3.5 h-3.5" />{t.label}
+              <t.icon className={`w-3.5 h-3.5 ${t.k === "live" && platform.live_active ? "animate-pulse" : ""}`} />{t.label}
+              {t.k === "live" && platform.live_active && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
             </button>
           ))}
         </div>
@@ -164,6 +166,7 @@ export default function PlatformAdmin() {
         {tab === "content" && <ContentManager platform={platform} items={content} refresh={refreshAll} />}
         {tab === "students" && <StudentsList students={students} refresh={refreshAll} />}
         {tab === "codes" && <CodesManager platform={platform} codes={codes} refresh={refreshAll} />}
+        {tab === "live" && <LiveTab platform={platform} reload={load} />}
         {tab === "settings" && <SettingsTab platform={platform} reload={load} />}
       </div>
 
