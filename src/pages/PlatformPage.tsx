@@ -57,13 +57,18 @@ export default function PlatformPage() {
   useEffect(() => {
     if (platform && step === "dashboard") {
       loadContent();
-      // Realtime: new content appears immediately for the student
+      // Realtime: new content + live stream toggles appear immediately
       const channel = supabase
         .channel(`student-content-${platform.id}`)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "content", filter: `platform_id=eq.${platform.id}` },
           () => loadContent()
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "platforms", filter: `id=eq.${platform.id}` },
+          (payload) => setPlatform((p) => p ? { ...p, ...(payload.new as any) } : p)
         )
         .subscribe();
       return () => {
