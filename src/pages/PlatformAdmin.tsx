@@ -563,8 +563,101 @@ function CodesManager({ platform, codes, refresh }: any) {
 }
 
 // ============================================================
-// Rooty — مساعد المدرس الشخصي (5 actions / day, unlimited chat)
+// LiveTab — بث مباشر (يوتيوب) للمدرس
 // ============================================================
+function LiveTab({ platform, reload }: any) {
+  const [url, setUrl] = useState(platform.live_url || "");
+  const [title, setTitle] = useState(platform.live_title || "");
+  const [cover, setCover] = useState(platform.live_cover_url || "");
+  const [busy, setBusy] = useState(false);
+
+  const isYoutube = (u: string) => /youtube\.com|youtu\.be/i.test(u);
+
+  const startLive = async () => {
+    if (!url.trim()) return toast.error("لازم تحط رابط البث");
+    if (!isYoutube(url)) return toast.error("الرابط لازم يكون من يوتيوب");
+    setBusy(true);
+    const { error } = await supabase.from("platforms").update({
+      live_active: true,
+      live_url: url.trim(),
+      live_title: title.trim() || "بث مباشر",
+      live_cover_url: cover.trim() || null,
+      live_started_at: new Date().toISOString(),
+    }).eq("id", platform.id);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("🔴 البث شغال دلوقتي — الطلاب هيشوفوه فوراً");
+    reload();
+  };
+
+  const stopLive = async () => {
+    setBusy(true);
+    const { error } = await supabase.from("platforms").update({
+      live_active: false,
+    }).eq("id", platform.id);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("تم إيقاف البث");
+    reload();
+  };
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      {/* Status card */}
+      <div className={`rounded-2xl border-2 p-5 ${platform.live_active ? "border-red-500/50 bg-red-500/5" : "border-border bg-card"}`}>
+        <div className="flex items-center gap-3 mb-1">
+          <div className={`w-3 h-3 rounded-full ${platform.live_active ? "bg-red-500 animate-pulse" : "bg-muted-foreground/40"}`} />
+          <div className="font-bold text-lg">
+            {platform.live_active ? "🔴 البث شغال دلوقتي" : "البث متوقف"}
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {platform.live_active
+            ? `الطلاب شايفين بانر "عاجل" في الداش بورد بتاعهم. وقت البداية: ${new Date(platform.live_started_at).toLocaleTimeString("ar-EG")}`
+            : "لما تشغل البث هيظهر بانر تلقائياً للطلاب. ينصح تستخدم بث يوتيوب Unlisted."}
+        </p>
+      </div>
+
+      {/* How to */}
+      <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 text-sm space-y-2">
+        <div className="font-bold flex items-center gap-2"><Radio className="w-4 h-4 text-blue-500" /> ازاي تعمل بث مباشر؟</div>
+        <ol className="list-decimal pr-5 space-y-1 text-muted-foreground">
+          <li>افتح يوتيوب → دوس على زرار "Create" → "Go Live".</li>
+          <li>اختار <strong>Unlisted</strong> (مش هيظهر للناس، بس اللي معاهم الرابط بس).</li>
+          <li>انسخ الرابط بتاع البث وحطه هنا تحت.</li>
+          <li>دوس "ابدأ البث" → الطلاب هيشوفوه في نص الداش بورد فوراً.</li>
+        </ol>
+      </div>
+
+      {/* Form */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">رابط البث (يوتيوب) *</label>
+          <Input placeholder="https://youtube.com/live/..." value={url} onChange={(e) => setUrl(e.target.value)} disabled={platform.live_active} />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">عنوان البث (اختياري)</label>
+          <Input placeholder="مثال: مراجعة الفصل الأول" value={title} onChange={(e) => setTitle(e.target.value)} disabled={platform.live_active} />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">رابط صورة الغلاف (اختياري)</label>
+          <Input placeholder="https://..." value={cover} onChange={(e) => setCover(e.target.value)} disabled={platform.live_active} />
+        </div>
+
+        {platform.live_active ? (
+          <Button onClick={stopLive} disabled={busy} variant="destructive" className="w-full">
+            <X className="w-4 h-4 ml-1" /> إيقاف البث
+          </Button>
+        ) : (
+          <Button onClick={startLive} disabled={busy} className="w-full bg-red-500 hover:bg-red-600 text-white">
+            <Radio className="w-4 h-4 ml-1" /> ابدأ البث المباشر
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RootyChat({ platform }: { platform: any }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
