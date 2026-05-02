@@ -194,6 +194,11 @@ export type Database = {
           gate_mode: string
           grade_levels: Json
           id: string
+          live_active: boolean
+          live_cover_url: string | null
+          live_started_at: string | null
+          live_title: string | null
+          live_url: string | null
           package_price: number
           package_students: number
           payment_status: string
@@ -223,6 +228,11 @@ export type Database = {
           gate_mode?: string
           grade_levels?: Json
           id?: string
+          live_active?: boolean
+          live_cover_url?: string | null
+          live_started_at?: string | null
+          live_title?: string | null
+          live_url?: string | null
           package_price?: number
           package_students?: number
           payment_status?: string
@@ -252,6 +262,11 @@ export type Database = {
           gate_mode?: string
           grade_levels?: Json
           id?: string
+          live_active?: boolean
+          live_cover_url?: string | null
+          live_started_at?: string | null
+          live_title?: string | null
+          live_url?: string | null
           package_price?: number
           package_students?: number
           payment_status?: string
