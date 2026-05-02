@@ -568,3 +568,92 @@ function AiSummarySection({ platform, student }: any) {
     </div>
   );
 }
+
+// ============================================================
+// LiveBanner — يظهر للطلاب لما المدرس يشغل البث
+// ============================================================
+function getYoutubeEmbed(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const liveMatch = u.pathname.match(/^\/live\/([a-zA-Z0-9_-]+)/);
+    if (liveMatch) return `https://www.youtube.com/embed/${liveMatch[1]}?autoplay=1`;
+    if (u.hostname.includes("youtu.be")) {
+      const id = u.pathname.replace("/", "");
+      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1`;
+    }
+    const v = u.searchParams.get("v");
+    if (v) return `https://www.youtube.com/embed/${v}?autoplay=1`;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function LiveBanner({ url, title, cover, primary }: { url: string; title: string; cover: string | null; primary: string }) {
+  const [open, setOpen] = useState(false);
+  const embed = getYoutubeEmbed(url);
+
+  return (
+    <>
+      <div
+        className="mb-6 rounded-3xl overflow-hidden border-2 border-red-500/60 shadow-2xl shadow-red-500/20 relative animate-in fade-in slide-in-from-top-4 duration-500"
+        style={{ background: `linear-gradient(135deg, #dc2626, #991b1b)` }}
+      >
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute top-0 left-0 w-40 h-40 rounded-full bg-white blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-40 h-40 rounded-full bg-white blur-3xl" />
+        </div>
+
+        <div className="relative p-5 flex items-center gap-4 flex-wrap md:flex-nowrap">
+          {cover && (
+            <img src={cover} alt="" className="w-20 h-20 rounded-2xl object-cover border-2 border-white/30 shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 bg-white text-red-600 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" /> عاجل · LIVE
+              </span>
+              <span className="text-white/80 text-xs">المدرس بث مباشر دلوقتي</span>
+            </div>
+            <h2 className="text-white font-black text-lg md:text-xl truncate">{title}</h2>
+          </div>
+          <Button
+            onClick={() => setOpen(true)}
+            className="bg-white text-red-600 hover:bg-white/90 font-bold shrink-0"
+            size="lg"
+          >
+            ▶ ادخل البث
+          </Button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between text-white mb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="font-bold">{title}</span>
+              </div>
+              <button onClick={() => setOpen(false)} className="px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-sm">إغلاق ✕</button>
+            </div>
+            <div className="aspect-video bg-black rounded-xl overflow-hidden">
+              {embed ? (
+                <iframe
+                  src={embed}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white">
+                  <a href={url} target="_blank" rel="noreferrer" className="underline" style={{ color: primary }}>افتح البث في يوتيوب</a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
