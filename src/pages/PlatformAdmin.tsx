@@ -13,7 +13,7 @@ export default function PlatformAdmin() {
   const [platform, setPlatform] = useState<any>(null);
   const [needsPassword, setNeedsPassword] = useState(false);
   const [pwInput, setPwInput] = useState("");
-  const [tab, setTab] = useState<"content" | "students" | "codes" | "settings">("content");
+  const [tab, setTab] = useState<"content" | "students" | "codes" | "live" | "settings">("content");
   const [content, setContent] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [codes, setCodes] = useState<any[]>([]);
