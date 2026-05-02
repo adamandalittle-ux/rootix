@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen, Lock, Unlock, Settings as Cog, Download, TrendingUp, Eye, EyeOff, Sparkles, X, Send, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen, Lock, Unlock, Settings as Cog, Download, TrendingUp, Eye, EyeOff, Sparkles, X, Send, AlertTriangle, Radio } from "lucide-react";
 import jsPDF from "jspdf";
 
 export default function PlatformAdmin() {
