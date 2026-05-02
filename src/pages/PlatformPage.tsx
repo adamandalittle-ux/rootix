@@ -19,6 +19,11 @@ interface Platform {
   config: any;
   gate_mode?: string;
   deleted_at?: string | null;
+  live_active?: boolean;
+  live_url?: string | null;
+  live_title?: string | null;
+  live_cover_url?: string | null;
+  live_started_at?: string | null;
 }
 
 interface Student {
