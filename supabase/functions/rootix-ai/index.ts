@@ -144,8 +144,8 @@ Deno.serve(async (req) => {
       contents: toGeminiContents(messages),
       tools: [{ functionDeclarations: [SAVE_PLATFORM_FN] }],
       generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 400,
+        temperature: 0.6,
+        maxOutputTokens: 1200,
       },
     };
 
