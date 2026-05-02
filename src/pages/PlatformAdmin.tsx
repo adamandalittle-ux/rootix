@@ -655,11 +655,9 @@ function RootyChat({ platform }: { platform: any }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {remaining !== null && (
-                <span className="text-xs bg-white/20 px-2.5 py-1 rounded-full font-medium">
-                  أعمال: {remaining}/5
-                </span>
-              )}
+              <span className="text-xs bg-white/20 px-2.5 py-1 rounded-full font-medium">
+                مفتوح ∞
+              </span>
               <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center">
                 <X className="w-4 h-4" />
               </button>
@@ -702,7 +700,7 @@ function RootyChat({ platform }: { platform: any }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
-              placeholder={remaining === 0 ? "خلصت أعمال النهارده، نتكلم بس..." : "اكتب رسالتك لـ Rooty..."}
+              placeholder="اكتب رسالتك لـ Rooty..."
               disabled={busy}
               className="flex-1"
             />
