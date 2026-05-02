@@ -350,6 +350,16 @@ export default function PlatformPage() {
       </nav>
 
       <div className="container mx-auto px-4 py-6">
+        {/* 🔴 LIVE banner */}
+        {platform.live_active && platform.live_url && (
+          <LiveBanner
+            url={platform.live_url}
+            title={platform.live_title || "بث مباشر"}
+            cover={platform.live_cover_url || null}
+            primary={primary}
+          />
+        )}
+
         {/* Welcome banner */}
         <div
           className="mb-6 rounded-3xl p-6 md:p-8 relative overflow-hidden border"
