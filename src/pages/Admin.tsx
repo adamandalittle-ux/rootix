@@ -44,12 +44,15 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [studentCounts, setStudentCounts] = useState<StudentCounts>({});
-  const [globalStats, setGlobalStats] = useState({ totalStudents: 0, totalContent: 0, totalExams: 0, avgScore: 0, todayStudents: 0, weekStudents: 0, totalRevenue: 0 });
+  const [globalStats, setGlobalStats] = useState({ totalStudents: 0, totalContent: 0, totalExams: 0, avgScore: 0, todayStudents: 0, weekStudents: 0, totalRevenue: 0, lifetimeRevenue: 0 });
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "paused" | "alerts" | "deleted">("pending");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [checkResults, setCheckResults] = useState<Record<string, any>>({});
+  const [paymentsModalFor, setPaymentsModalFor] = useState<Platform | null>(null);
+  const [paymentsByPlatform, setPaymentsByPlatform] = useState<Record<string, any[]>>({});
+  const [studentReportFor, setStudentReportFor] = useState<{ student: any; platform: Platform } | null>(null);
 
   useEffect(() => {
     if (localStorage.getItem("rootix_admin") === "1") setLoggedIn(true);
