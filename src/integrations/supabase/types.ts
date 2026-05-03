@@ -181,6 +181,44 @@ export type Database = {
           },
         ]
       }
+      platform_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          month_label: string | null
+          notes: string | null
+          paid_at: string
+          platform_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          month_label?: string | null
+          notes?: string | null
+          paid_at?: string
+          platform_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          month_label?: string | null
+          notes?: string | null
+          paid_at?: string
+          platform_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_payments_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platforms: {
         Row: {
           admin_notes: string | null
