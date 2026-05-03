@@ -409,6 +409,7 @@ function ContentManager({ platform, items, refresh }: any) {
 }
 
 function StudentsList({ students, refresh }: any) {
+  const [reportFor, setReportFor] = useState<any>(null);
   const remove = async (id: string) => {
     await supabase.from("students").delete().eq("id", id);
     toast.success("تم الحذف");
@@ -416,18 +417,167 @@ function StudentsList({ students, refresh }: any) {
   };
   if (students.length === 0) return <div className="text-center py-10 text-muted-foreground">لا يوجد طلاب بعد</div>;
   return (
-    <div className="space-y-2">
-      {students.map((s: any) => (
-        <div key={s.id} className="rounded-lg border border-border bg-card p-3 flex items-center justify-between">
-          <div>
-            <div className="font-medium text-sm">{s.full_name}</div>
-            <div className="text-xs text-muted-foreground">{s.phone} • {s.grade_level} • كود: {s.access_code}</div>
+    <>
+      <div className="space-y-2">
+        {students.map((s: any) => (
+          <div key={s.id} className="rounded-lg border border-border bg-card p-3 flex items-center justify-between hover:border-primary/50 transition-colors">
+            <button onClick={() => setReportFor(s)} className="flex-1 text-start">
+              <div className="font-medium text-sm hover:text-primary">{s.full_name}</div>
+              <div className="text-xs text-muted-foreground">{s.phone} • {s.grade_level} • كود: {s.access_code}</div>
+            </button>
+            <Button variant="ghost" size="icon" onClick={() => remove(s.id)}>
+              <Trash2 className="w-4 h-4 text-destructive" />
+            </Button>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => remove(s.id)}>
-            <Trash2 className="w-4 h-4 text-destructive" />
-          </Button>
+        ))}
+      </div>
+      {reportFor && <StudentReportModal student={reportFor} onClose={() => setReportFor(null)} />}
+    </>
+  );
+}
+
+function StudentReportModal({ student, onClose }: { student: any; onClose: () => void }) {
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("exam_results")
+        .select("*, content:exam_id(title,kind)")
+        .eq("student_id", student.id)
+        .order("created_at", { ascending: false });
+      setResults(data || []);
+      setLoading(false);
+    })();
+  }, [student.id]);
+
+  // Stats
+  const totalExams = results.length;
+  const totalCorrect = results.reduce((s, r) => s + (r.score || 0), 0);
+  const totalQuestions = results.reduce((s, r) => s + (r.total || 0), 0);
+  const totalWrong = totalQuestions - totalCorrect;
+  const avgPct = totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+  let levelLabel = "محتاج دعم", levelColor = "text-destructive", levelBg = "bg-destructive/10";
+  if (avgPct >= 85) { levelLabel = "ممتاز ⭐"; levelColor = "text-green-500"; levelBg = "bg-green-500/10"; }
+  else if (avgPct >= 70) { levelLabel = "جيد جداً"; levelColor = "text-blue-500"; levelBg = "bg-blue-500/10"; }
+  else if (avgPct >= 50) { levelLabel = "متوسط"; levelColor = "text-yellow-500"; levelBg = "bg-yellow-500/10"; }
+  else if (avgPct >= 30) { levelLabel = "ضعيف"; levelColor = "text-orange-500"; levelBg = "bg-orange-500/10"; }
+
+  const downloadPdf = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Student Report", 105, 20, { align: "center" });
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Name: ${student.full_name}`, 20, 35);
+    doc.text(`Phone: ${student.phone}`, 20, 43);
+    doc.text(`Grade: ${student.grade_level}`, 20, 51);
+    doc.text(`Access Code: ${student.access_code}`, 20, 59);
+    doc.text(`Joined: ${new Date(student.created_at).toLocaleDateString("en-US")}`, 20, 67);
+
+    doc.setDrawColor(180); doc.line(20, 73, 190, 73);
+
+    doc.setTextColor(0); doc.setFontSize(13);
+    doc.text("Performance Summary", 20, 82);
+    doc.setFontSize(11); doc.setTextColor(60);
+    doc.text(`Exams taken: ${totalExams}`, 20, 92);
+    doc.text(`Correct answers: ${totalCorrect} / ${totalQuestions}`, 20, 100);
+    doc.text(`Wrong answers: ${totalWrong}`, 20, 108);
+    doc.text(`Average score: ${avgPct}%`, 20, 116);
+    doc.text(`Level: ${levelLabel.replace(/[^\x00-\x7F]/g, "").trim() || avgPct + "%"}`, 20, 124);
+
+    doc.line(20, 130, 190, 130);
+    doc.setTextColor(0); doc.setFontSize(13);
+    doc.text("Exam History", 20, 140);
+    doc.setFontSize(10); doc.setTextColor(60);
+    let y = 150;
+    results.forEach((r, i) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      const pct = r.total ? Math.round((r.score / r.total) * 100) : 0;
+      doc.text(`${i + 1}. Score ${r.score}/${r.total} (${pct}%) - ${new Date(r.created_at).toLocaleDateString("en-US")}`, 20, y);
+      y += 7;
+    });
+
+    doc.save(`student-report-${student.full_name.replace(/\s+/g, "-")}.pdf`);
+    toast.success("تم تحميل التقرير");
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} dir="rtl">
+        <div className="sticky top-0 bg-card border-b border-border p-5 flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-lg">📊 تقرير {student.full_name}</h2>
+            <p className="text-xs text-muted-foreground">{student.phone} • {student.grade_level}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={downloadPdf} variant="outline"><Download className="w-4 h-4 ml-1" />PDF</Button>
+            <Button size="sm" variant="ghost" onClick={onClose}><X className="w-4 h-4" /></Button>
+          </div>
         </div>
-      ))}
+
+        <div className="p-5 space-y-4">
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">جاري التحميل...</div>
+          ) : (
+            <>
+              {/* Level badge */}
+              <div className={`rounded-2xl border-2 ${levelBg} p-5 text-center`}>
+                <div className="text-xs text-muted-foreground mb-1">المستوى الدراسي</div>
+                <div className={`text-3xl font-black ${levelColor}`}>{levelLabel}</div>
+                <div className="text-sm text-muted-foreground mt-1">متوسط: {avgPct}%</div>
+              </div>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="rounded-lg border border-border bg-background p-3 text-center">
+                  <div className="text-xs text-muted-foreground">امتحانات</div>
+                  <div className="text-2xl font-bold">{totalExams}</div>
+                </div>
+                <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3 text-center">
+                  <div className="text-xs text-muted-foreground">إجابات صح</div>
+                  <div className="text-2xl font-bold text-green-500">{totalCorrect}</div>
+                </div>
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-center">
+                  <div className="text-xs text-muted-foreground">إجابات غلط</div>
+                  <div className="text-2xl font-bold text-destructive">{totalWrong}</div>
+                </div>
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-center">
+                  <div className="text-xs text-muted-foreground">إجمالي الأسئلة</div>
+                  <div className="text-2xl font-bold text-primary">{totalQuestions}</div>
+                </div>
+              </div>
+
+              {/* Exam history */}
+              <div>
+                <div className="font-bold text-sm mb-2">📝 سجل الامتحانات</div>
+                {results.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground text-sm">الطالب ما حلش امتحانات لسه</div>
+                ) : (
+                  <div className="space-y-2">
+                    {results.map((r) => {
+                      const pct = r.total ? Math.round((r.score / r.total) * 100) : 0;
+                      return (
+                        <div key={r.id} className="rounded-lg border border-border bg-background p-3 flex items-center justify-between">
+                          <div>
+                            <div className="font-semibold text-sm">{r.content?.title || "امتحان"}</div>
+                            <div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString("ar-EG")}</div>
+                          </div>
+                          <div className={`text-lg font-bold ${pct >= 70 ? "text-green-500" : pct >= 50 ? "text-yellow-500" : "text-destructive"}`}>
+                            {r.score}/{r.total} <span className="text-xs">({pct}%)</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
