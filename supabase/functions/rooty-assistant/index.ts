@@ -1,4 +1,4 @@
-// Rooty — مساعد المدرس الشخصي. شات مفتوح + أعمال غير محدودة.
+// Rooty — مساعد المدرس الشخصي. شات مفتوح + أعمال + إصلاح أخطاء غير محدودة.
 // يستخدم Google Gemini API مباشرة (gemini-flash-latest).
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
@@ -6,29 +6,32 @@ import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 const SYSTEM_PROMPT = `أنت "Rooty" — مساعد شخصي ذكي للمدرس داخل منصته على ROOTIX.
 
 ## شخصيتك:
-- مصري، ودود، عملي، مهذب.
+- مصري، ودود، عملي، مهذب، شارح بتفاصيل لما يلزم.
 - اسمك Rooty (ليس ROOTIX). أنت مختلف عن AI بناء المنصات.
 
 ## قواعد الذهب:
-- ردك مختصر وواضح. لو محتاج تفصيل اعمله بدون رغي.
+- ردك واضح ومفيد. لو محتاج تشرح، اشرح. لو السؤال بسيط، رد مختصر.
 - لا تكتب أكواد برمجية للمدرس.
 - لا تغير شكل المنصة أو ألوانها.
 
-## صلاحياتك (غير محدودة):
-1. إضافة سؤال لبنك الأسئلة → \`add_question\`
-2. إضافة امتحان كامل → \`add_exam\`
-3. إضافة فيديو (لو المدرس أعطاك رابط) → \`add_video\`
-4. إضافة PDF (لو المدرس أعطاك رابط) → \`add_pdf\`
+## صلاحياتك (غير محدودة، استخدمها بحرية):
+1. \`add_question\` — إضافة سؤال لبنك الأسئلة.
+2. \`add_exam\` — إضافة امتحان كامل بأكتر من سؤال.
+3. \`add_video\` — إضافة فيديو (يوتيوب أو رابط مباشر).
+4. \`add_pdf\` — إضافة ملف PDF.
+5. \`fix_platform\` — إصلاح المنصة تلقائياً (مسح المحتوى المكسور، تنضيف، توحيد الصفوف). استخدمها لما المدرس يقول "في مشاكل" أو "صلح المنصة".
+6. \`delete_content\` — حذف محتوى محدد بالاسم لو المدرس طلب.
 
 ## محادثات بدون عمل (غير محدودة):
 - نصائح تربوية وطرق شرح.
 - اقتراح أفكار لامتحانات.
 - مساعدة في صياغة أسئلة.
-- شرح مفاهيم تعليمية للمدرس.
+- شرح مفاهيم تعليمية.
 
-## مهم جداً:
-- قبل أي عمل → اسأل عن الصف المستهدف لو مش واضح.
-- لما يقول "حط 10 أسئلة" → نفذها كلها بـ \`add_exam\` واحد (مش 10 add_question).
+## مهم:
+- قبل أي عمل → اسأل عن الصف لو مش واضح.
+- "حط 10 أسئلة" → \`add_exam\` واحد فيه 10 أسئلة (مش 10 add_question).
+- "صلح الأخطاء" → \`fix_platform\`.
 `;
 
 const FUNCTION_DECLS = [
@@ -73,7 +76,7 @@ const FUNCTION_DECLS = [
   },
   {
     name: "add_video",
-    description: "أضف فيديو للمنصة. يحتاج رابط.",
+    description: "أضف فيديو للمنصة. يدعم يوتيوب وروابط مباشرة.",
     parameters: {
       type: "object",
       properties: {
@@ -98,9 +101,23 @@ const FUNCTION_DECLS = [
       required: ["title", "grade_level", "url"],
     },
   },
+  {
+    name: "fix_platform",
+    description: "إصلاح أخطاء المنصة: مسح المحتوى المكسور (بدون عنوان أو بدون صف)، توحيد البيانات.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "delete_content",
+    description: "حذف محتوى بناءً على عنوان جزئي. استخدمها فقط لو المدرس طلب صراحة.",
+    parameters: {
+      type: "object",
+      properties: { title_contains: { type: "string" } },
+      required: ["title_contains"],
+    },
+  },
 ];
 
-const ACTION_NAMES = new Set(["add_question", "add_exam", "add_video", "add_pdf"]);
+const ACTION_NAMES = new Set(["add_question", "add_exam", "add_video", "add_pdf", "fix_platform", "delete_content"]);
 
 function toGeminiContents(messages: Array<{ role: string; content: string }>) {
   return messages
@@ -129,7 +146,6 @@ Deno.serve(async (req) => {
 
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-    // Platform context
     const { data: platform } = await sb
       .from("platforms")
       .select("subject,stage,grade_levels,config")
@@ -142,14 +158,14 @@ Deno.serve(async (req) => {
 - الصفوف: ${JSON.stringify(platform?.grade_levels || [])}
 - اسم المنصة: ${platform?.config?.platform_name || "—"}
 
-ملاحظة: الأعمال (إضافة أسئلة/امتحانات/فيديو/PDF) غير محدودة، نفذها متى طلب المدرس.`;
+كل أعمالك (إضافة محتوى/إصلاح/حذف) غير محدودة.`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
     const body = {
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT + "\n\n" + contextMsg }] },
       contents: toGeminiContents(messages),
       tools: [{ functionDeclarations: FUNCTION_DECLS }],
-      generationConfig: { temperature: 0.5, maxOutputTokens: 1500 },
+      generationConfig: { temperature: 0.5, maxOutputTokens: 2000 },
     };
 
     const aiResp = await fetch(url, {
@@ -178,6 +194,35 @@ Deno.serve(async (req) => {
       if (p.functionCall && ACTION_NAMES.has(p.functionCall.name)) {
         const name = p.functionCall.name;
         const args = p.functionCall.args || {};
+
+        if (name === "fix_platform") {
+          // Delete broken content (empty title or no grade)
+          const { data: items } = await sb.from("content").select("id,title,grade_level,kind,data").eq("platform_id", platform_id);
+          const broken = (items || []).filter((i: any) =>
+            !i.title || !i.title.trim() || !i.grade_level ||
+            ((i.kind === "video" || i.kind === "pdf") && !i.data?.url) ||
+            ((i.kind === "exam" || i.kind === "question") && !(i.data?.questions?.length))
+          );
+          if (broken.length) {
+            await sb.from("content").delete().in("id", broken.map((b: any) => b.id));
+          }
+          executedActions.push({ name, ok: true, title: `تم تنظيف ${broken.length} عنصر مكسور` });
+          await sb.from("rooty_actions").insert({ platform_id, action_type: name, description: `cleaned ${broken.length}`, payload: {} });
+          continue;
+        }
+
+        if (name === "delete_content") {
+          const q = String(args.title_contains || "").trim();
+          if (!q) { executedActions.push({ name, ok: false, error: "no query" }); continue; }
+          const { data: items } = await sb.from("content").select("id,title").eq("platform_id", platform_id).ilike("title", `%${q}%`);
+          if (items?.length) {
+            await sb.from("content").delete().in("id", items.map((i: any) => i.id));
+          }
+          executedActions.push({ name, ok: true, title: `حذف ${items?.length || 0} عنصر يحتوي "${q}"` });
+          await sb.from("rooty_actions").insert({ platform_id, action_type: name, description: q, payload: args });
+          continue;
+        }
+
         const title = args.title || "بدون عنوان";
         const grade_level = args.grade_level || (platform?.grade_levels?.[0] ?? "");
 
@@ -204,7 +249,6 @@ Deno.serve(async (req) => {
           executedActions.push({ name, ok: false, error: cErr.message });
           continue;
         }
-        // Log action (no daily limit, just tracking)
         await sb.from("rooty_actions").insert({
           platform_id, action_type: name, description: title, payload: args,
         });
