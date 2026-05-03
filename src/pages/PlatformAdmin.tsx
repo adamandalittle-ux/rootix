@@ -811,7 +811,7 @@ function LiveTab({ platform, reload }: any) {
 function RootyChat({ platform }: { platform: any }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    { role: "assistant", content: `أهلاً أ/ ${platform.teacher_name} 👋\nأنا Rooty، مساعدك الشخصي. أقدر أحط لك أسئلة، امتحانات، فيديوهات، PDF (5 أعمال في اليوم) — ونتكلم نصايح براحتنا.\nقولي تحب أساعدك في إيه؟` },
+    { role: "assistant", content: `أهلاً أ/ ${platform.teacher_name} 👋\nأنا Rooty، مساعدك الشخصي. أقدر أحط لك أسئلة، امتحانات، فيديوهات، PDF، وكمان أصلح أي أخطاء في المنصة (مفتوح بدون حد).\n\n⚠️ ملاحظة: أحياناً ممكن أعمل أخطاء بسيطة، فمراجعة المحتوى قبل النشر للطلاب أحسن.\n\nقولي تحب أساعدك في إيه؟` },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
