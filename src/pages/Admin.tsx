@@ -628,9 +628,8 @@ export default function Admin() {
                         <Button size="sm" variant="outline" onClick={() => updateStatus(p.id, "paused")}>
                           <Pause className="w-4 h-4 ml-1" />إيقاف
                         </Button>
-                        <Button size="sm" variant={p.payment_status === "paid" ? "outline" : "default"} onClick={() => togglePayment(p.id, p.payment_status)}
-                          className={p.payment_status !== "paid" ? "bg-green-600 hover:bg-green-700 text-white" : ""}>
-                          {p.payment_status === "paid" ? "إلغاء الدفع" : "✓ تأكيد استلام الفلوس"}
+                        <Button size="sm" onClick={() => setPaymentsModalFor(p)} className="bg-green-600 hover:bg-green-700 text-white">
+                          <DollarSign className="w-4 h-4 ml-1" />الدفعات الشهرية
                         </Button>
                       </>
                     )}
