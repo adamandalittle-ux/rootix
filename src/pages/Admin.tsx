@@ -532,6 +532,22 @@ export default function Admin() {
                         <span>📚 {p.subject} - {p.stage}</span>
                         <span className="font-semibold text-foreground">💰 {p.package_price} ج/شهر</span>
                       </div>
+                      {/* Dates & Payments summary */}
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> أنشئت: {new Date(p.created_at).toLocaleDateString("ar-EG")}</span>
+                        {(p as any).approved_at && (
+                          <span className="flex items-center gap-1 text-green-500"><CheckCircle className="w-3 h-3" /> مفعّلة: {new Date((p as any).approved_at).toLocaleDateString("ar-EG")}</span>
+                        )}
+                        <span className="flex items-center gap-1 text-primary font-semibold">
+                          <DollarSign className="w-3 h-3" />
+                          دفع {(paymentsByPlatform[p.id] || []).length} شهر • إجمالي: {((paymentsByPlatform[p.id] || []).reduce((s, x) => s + (x.amount || 0), 0)).toLocaleString("ar-EG")} ج
+                        </span>
+                        {(p as any).deleted_at && (
+                          <span className="flex items-center gap-1 text-destructive">
+                            <Trash2 className="w-3 h-3" /> حُذفت: {new Date((p as any).deleted_at).toLocaleDateString("ar-EG")}
+                          </span>
+                        )}
+                      </div>
 
                       {/* Student usage bar */}
                       <div className="mt-3 max-w-md">
