@@ -675,6 +675,15 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {paymentsModalFor && (
+        <PaymentsModal
+          platform={paymentsModalFor}
+          payments={paymentsByPlatform[paymentsModalFor.id] || []}
+          onClose={() => setPaymentsModalFor(null)}
+          onChange={loadStudentCounts}
+        />
+      )}
     </div>
   );
 }
