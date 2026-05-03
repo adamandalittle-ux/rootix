@@ -699,3 +699,99 @@ function StatusBadge({ status }: { status: string }) {
   const v = map[status] || { label: status, cls: "bg-muted text-muted-foreground" };
   return <span className={`text-xs px-2 py-0.5 rounded ${v.cls}`}>{v.label}</span>;
 }
+
+function PaymentsModal({ platform, payments, onClose, onChange }: { platform: Platform; payments: any[]; onClose: () => void; onChange: () => void }) {
+  const [amount, setAmount] = useState(platform.package_price);
+  const [monthLabel, setMonthLabel] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const total = payments.reduce((s, p) => s + (p.amount || 0), 0);
+  const monthsPaid = payments.length;
+
+  const addPayment = async () => {
+    if (!amount || amount <= 0) return toast.error("ادخل مبلغ صح");
+    setBusy(true);
+    const { error } = await supabase.from("platform_payments").insert({
+      platform_id: platform.id,
+      amount,
+      month_label: monthLabel,
+      notes: notes.trim() || null,
+    });
+    if (!error) {
+      // Also update payment_status to "paid" for backward compat
+      await supabase.from("platforms").update({ payment_status: "paid" }).eq("id", platform.id);
+      toast.success("✅ تم تسجيل الدفعة");
+      setNotes("");
+      onChange();
+    } else {
+      toast.error(error.message);
+    }
+    setBusy(false);
+  };
+
+  const removePayment = async (id: string) => {
+    if (!confirm("احذف الدفعة دي؟")) return;
+    await supabase.from("platform_payments").delete().eq("id", id);
+    toast.success("اتمسحت");
+    onChange();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} dir="rtl">
+        <div className="sticky top-0 bg-card border-b border-border p-5 flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-lg flex items-center gap-2"><DollarSign className="w-5 h-5 text-green-500" />دفعات {platform.config?.platform_name || platform.teacher_name}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">دفع {monthsPaid} شهر • إجمالي {total.toLocaleString("ar-EG")} ج</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+            <div className="font-bold text-sm">➕ سجل دفعة شهر جديد</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground">المبلغ (ج)</label>
+                <Input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">الشهر (مثلاً 2026-05)</label>
+                <Input value={monthLabel} onChange={(e) => setMonthLabel(e.target.value)} />
+              </div>
+            </div>
+            <Input placeholder="ملاحظات (اختياري)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Button onClick={addPayment} disabled={busy} className="w-full bg-green-600 hover:bg-green-700 text-white">
+              {busy ? "جاري الحفظ..." : `✓ سجل ${amount} ج عن شهر ${monthLabel}`}
+            </Button>
+          </div>
+
+          <div>
+            <div className="font-bold text-sm mb-2 flex items-center gap-2"><Clock className="w-4 h-4" />سجل الدفعات ({payments.length})</div>
+            {payments.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground text-sm">مفيش دفعات لسه — سجل أول شهر فوق</div>
+            ) : (
+              <div className="space-y-2">
+                {[...payments].sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime()).map((p) => (
+                  <div key={p.id} className="flex items-center justify-between rounded-lg border border-border bg-background p-3">
+                    <div>
+                      <div className="font-semibold text-sm">{p.amount.toLocaleString("ar-EG")} ج • شهر {p.month_label || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{new Date(p.paid_at).toLocaleString("ar-EG")} {p.notes ? `• ${p.notes}` : ""}</div>
+                    </div>
+                    <Button size="icon" variant="ghost" onClick={() => removePayment(p.id)} className="text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
