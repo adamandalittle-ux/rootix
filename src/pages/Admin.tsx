@@ -171,15 +171,25 @@ export default function Admin() {
     }
     setStudentCounts(counts);
 
-    // Global stats: content count, exam results avg
-    const [{ count: contentCount }, { data: examResults }] = await Promise.all([
+    const [{ count: contentCount }, { data: examResults }, { data: payments }] = await Promise.all([
       supabase.from("content").select("*", { count: "exact", head: true }),
       supabase.from("exam_results").select("score,total"),
+      supabase.from("platform_payments").select("amount,platform_id,paid_at"),
     ]);
     const totalExams = examResults?.length || 0;
     const avgScore = totalExams > 0
       ? Math.round((examResults!.reduce((s: number, r: any) => s + (r.total ? (r.score / r.total) * 100 : 0), 0) / totalExams))
       : 0;
+
+    // Group payments per platform
+    const grouped: Record<string, any[]> = {};
+    let lifetime = 0;
+    for (const p of (payments || []) as any[]) {
+      grouped[p.platform_id] = grouped[p.platform_id] || [];
+      grouped[p.platform_id].push(p);
+      lifetime += p.amount || 0;
+    }
+    setPaymentsByPlatform(grouped);
 
     setGlobalStats((prev) => ({
       ...prev,
@@ -189,6 +199,7 @@ export default function Admin() {
       avgScore,
       todayStudents: todayCount,
       weekStudents: weekCount,
+      lifetimeRevenue: lifetime,
     }));
   };
 
