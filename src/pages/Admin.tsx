@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { LogOut, Users, CheckCircle, XCircle, Pause, Play, ArrowLeft, Phone, Calendar, AlertTriangle, TrendingUp, Eye, Trash2, Search, Copy, ExternalLink, Sparkles, Bell, Loader2 } from "lucide-react";
+import { LogOut, Users, CheckCircle, XCircle, Pause, Play, ArrowLeft, Phone, Calendar, AlertTriangle, TrendingUp, Eye, Trash2, Search, Copy, ExternalLink, Sparkles, Bell, Loader2, DollarSign, Clock, X } from "lucide-react";
 
 interface Platform {
   id: string;
@@ -44,12 +44,15 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [studentCounts, setStudentCounts] = useState<StudentCounts>({});
-  const [globalStats, setGlobalStats] = useState({ totalStudents: 0, totalContent: 0, totalExams: 0, avgScore: 0, todayStudents: 0, weekStudents: 0, totalRevenue: 0 });
+  const [globalStats, setGlobalStats] = useState({ totalStudents: 0, totalContent: 0, totalExams: 0, avgScore: 0, todayStudents: 0, weekStudents: 0, totalRevenue: 0, lifetimeRevenue: 0 });
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "paused" | "alerts" | "deleted">("pending");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [checkResults, setCheckResults] = useState<Record<string, any>>({});
+  const [paymentsModalFor, setPaymentsModalFor] = useState<Platform | null>(null);
+  const [paymentsByPlatform, setPaymentsByPlatform] = useState<Record<string, any[]>>({});
+  const [studentReportFor, setStudentReportFor] = useState<{ student: any; platform: Platform } | null>(null);
 
   useEffect(() => {
     if (localStorage.getItem("rootix_admin") === "1") setLoggedIn(true);
@@ -168,15 +171,25 @@ export default function Admin() {
     }
     setStudentCounts(counts);
 
-    // Global stats: content count, exam results avg
-    const [{ count: contentCount }, { data: examResults }] = await Promise.all([
+    const [{ count: contentCount }, { data: examResults }, { data: payments }] = await Promise.all([
       supabase.from("content").select("*", { count: "exact", head: true }),
       supabase.from("exam_results").select("score,total"),
+      supabase.from("platform_payments").select("amount,platform_id,paid_at"),
     ]);
     const totalExams = examResults?.length || 0;
     const avgScore = totalExams > 0
       ? Math.round((examResults!.reduce((s: number, r: any) => s + (r.total ? (r.score / r.total) * 100 : 0), 0) / totalExams))
       : 0;
+
+    // Group payments per platform
+    const grouped: Record<string, any[]> = {};
+    let lifetime = 0;
+    for (const p of (payments || []) as any[]) {
+      grouped[p.platform_id] = grouped[p.platform_id] || [];
+      grouped[p.platform_id].push(p);
+      lifetime += p.amount || 0;
+    }
+    setPaymentsByPlatform(grouped);
 
     setGlobalStats((prev) => ({
       ...prev,
@@ -186,6 +199,7 @@ export default function Admin() {
       avgScore,
       todayStudents: todayCount,
       weekStudents: weekCount,
+      lifetimeRevenue: lifetime,
     }));
   };
 
@@ -379,9 +393,9 @@ export default function Admin() {
             <div className="text-xs text-muted-foreground mt-1">فيديو + PDF + امتحانات</div>
           </div>
           <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 to-purple-500/5 p-5">
-            <div className="text-xs text-muted-foreground mb-1">📝 امتحانات حُلت</div>
-            <div className="text-3xl font-black text-purple-500">{globalStats.totalExams.toLocaleString("ar-EG")}</div>
-            <div className="text-xs text-muted-foreground mt-1">متوسط النتيجة: {globalStats.avgScore}%</div>
+            <div className="text-xs text-muted-foreground mb-1">💎 إجمالي الإيرادات (كل الفلوس)</div>
+            <div className="text-3xl font-black text-purple-500">{globalStats.lifetimeRevenue.toLocaleString("ar-EG")}<span className="text-base mr-1">ج</span></div>
+            <div className="text-xs text-muted-foreground mt-1">من بداية ROOTIX لحد دلوقتي</div>
           </div>
         </div>
 
@@ -518,6 +532,22 @@ export default function Admin() {
                         <span>📚 {p.subject} - {p.stage}</span>
                         <span className="font-semibold text-foreground">💰 {p.package_price} ج/شهر</span>
                       </div>
+                      {/* Dates & Payments summary */}
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> أنشئت: {new Date(p.created_at).toLocaleDateString("ar-EG")}</span>
+                        {(p as any).approved_at && (
+                          <span className="flex items-center gap-1 text-green-500"><CheckCircle className="w-3 h-3" /> مفعّلة: {new Date((p as any).approved_at).toLocaleDateString("ar-EG")}</span>
+                        )}
+                        <span className="flex items-center gap-1 text-primary font-semibold">
+                          <DollarSign className="w-3 h-3" />
+                          دفع {(paymentsByPlatform[p.id] || []).length} شهر • إجمالي: {((paymentsByPlatform[p.id] || []).reduce((s, x) => s + (x.amount || 0), 0)).toLocaleString("ar-EG")} ج
+                        </span>
+                        {(p as any).deleted_at && (
+                          <span className="flex items-center gap-1 text-destructive">
+                            <Trash2 className="w-3 h-3" /> حُذفت: {new Date((p as any).deleted_at).toLocaleDateString("ar-EG")}
+                          </span>
+                        )}
+                      </div>
 
                       {/* Student usage bar */}
                       <div className="mt-3 max-w-md">
@@ -598,9 +628,8 @@ export default function Admin() {
                         <Button size="sm" variant="outline" onClick={() => updateStatus(p.id, "paused")}>
                           <Pause className="w-4 h-4 ml-1" />إيقاف
                         </Button>
-                        <Button size="sm" variant={p.payment_status === "paid" ? "outline" : "default"} onClick={() => togglePayment(p.id, p.payment_status)}
-                          className={p.payment_status !== "paid" ? "bg-green-600 hover:bg-green-700 text-white" : ""}>
-                          {p.payment_status === "paid" ? "إلغاء الدفع" : "✓ تأكيد استلام الفلوس"}
+                        <Button size="sm" onClick={() => setPaymentsModalFor(p)} className="bg-green-600 hover:bg-green-700 text-white">
+                          <DollarSign className="w-4 h-4 ml-1" />الدفعات الشهرية
                         </Button>
                       </>
                     )}
@@ -646,6 +675,15 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {paymentsModalFor && (
+        <PaymentsModal
+          platform={paymentsModalFor}
+          payments={paymentsByPlatform[paymentsModalFor.id] || []}
+          onClose={() => setPaymentsModalFor(null)}
+          onChange={loadStudentCounts}
+        />
+      )}
     </div>
   );
 }
@@ -660,4 +698,100 @@ function StatusBadge({ status }: { status: string }) {
   };
   const v = map[status] || { label: status, cls: "bg-muted text-muted-foreground" };
   return <span className={`text-xs px-2 py-0.5 rounded ${v.cls}`}>{v.label}</span>;
+}
+
+function PaymentsModal({ platform, payments, onClose, onChange }: { platform: Platform; payments: any[]; onClose: () => void; onChange: () => void }) {
+  const [amount, setAmount] = useState(platform.package_price);
+  const [monthLabel, setMonthLabel] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const total = payments.reduce((s, p) => s + (p.amount || 0), 0);
+  const monthsPaid = payments.length;
+
+  const addPayment = async () => {
+    if (!amount || amount <= 0) return toast.error("ادخل مبلغ صح");
+    setBusy(true);
+    const { error } = await supabase.from("platform_payments").insert({
+      platform_id: platform.id,
+      amount,
+      month_label: monthLabel,
+      notes: notes.trim() || null,
+    });
+    if (!error) {
+      // Also update payment_status to "paid" for backward compat
+      await supabase.from("platforms").update({ payment_status: "paid" }).eq("id", platform.id);
+      toast.success("✅ تم تسجيل الدفعة");
+      setNotes("");
+      onChange();
+    } else {
+      toast.error(error.message);
+    }
+    setBusy(false);
+  };
+
+  const removePayment = async (id: string) => {
+    if (!confirm("احذف الدفعة دي؟")) return;
+    await supabase.from("platform_payments").delete().eq("id", id);
+    toast.success("اتمسحت");
+    onChange();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} dir="rtl">
+        <div className="sticky top-0 bg-card border-b border-border p-5 flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-lg flex items-center gap-2"><DollarSign className="w-5 h-5 text-green-500" />دفعات {platform.config?.platform_name || platform.teacher_name}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">دفع {monthsPaid} شهر • إجمالي {total.toLocaleString("ar-EG")} ج</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+            <div className="font-bold text-sm">➕ سجل دفعة شهر جديد</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground">المبلغ (ج)</label>
+                <Input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">الشهر (مثلاً 2026-05)</label>
+                <Input value={monthLabel} onChange={(e) => setMonthLabel(e.target.value)} />
+              </div>
+            </div>
+            <Input placeholder="ملاحظات (اختياري)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Button onClick={addPayment} disabled={busy} className="w-full bg-green-600 hover:bg-green-700 text-white">
+              {busy ? "جاري الحفظ..." : `✓ سجل ${amount} ج عن شهر ${monthLabel}`}
+            </Button>
+          </div>
+
+          <div>
+            <div className="font-bold text-sm mb-2 flex items-center gap-2"><Clock className="w-4 h-4" />سجل الدفعات ({payments.length})</div>
+            {payments.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground text-sm">مفيش دفعات لسه — سجل أول شهر فوق</div>
+            ) : (
+              <div className="space-y-2">
+                {[...payments].sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime()).map((p) => (
+                  <div key={p.id} className="flex items-center justify-between rounded-lg border border-border bg-background p-3">
+                    <div>
+                      <div className="font-semibold text-sm">{p.amount.toLocaleString("ar-EG")} ج • شهر {p.month_label || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{new Date(p.paid_at).toLocaleString("ar-EG")} {p.notes ? `• ${p.notes}` : ""}</div>
+                    </div>
+                    <Button size="icon" variant="ghost" onClick={() => removePayment(p.id)} className="text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -418,13 +418,24 @@ function ContentCard({ item, student, primary, platformId }: any) {
   const [playing, setPlaying] = useState(false);
 
   if (item.kind === "video") {
+    const rawUrl = item.data?.url || "";
+    const ytEmbed = getYoutubeEmbed(rawUrl);
+    const isYoutube = !!ytEmbed;
     return (
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="relative aspect-video bg-black">
           {playing ? (
             <>
-              <video src={item.data?.url} controls controlsList="nodownload" className="w-full h-full" />
-              {/* Dynamic watermark */}
+              {isYoutube ? (
+                <iframe
+                  src={ytEmbed!}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
+              ) : (
+                <video src={rawUrl} controls controlsList="nodownload" className="w-full h-full" />
+              )}
               <Watermark name={student.full_name} phone={student.phone} />
             </>
           ) : (
