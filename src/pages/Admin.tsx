@@ -922,3 +922,71 @@ function PaymentsModal({ platform, payments, onClose, onChange }: { platform: Pl
     </div>
   );
 }
+
+function StudentsListModal({ platform, students, onClose }: { platform: Platform; students: any[]; onClose: () => void }) {
+  const copyAll = () => {
+    const txt = students.map((s, i) => `${i + 1}. ${s.full_name} | ${s.phone} | كود: ${s.access_code} | ${s.grade_level}`).join("\n");
+    navigator.clipboard.writeText(txt);
+    toast.success("تم نسخ بيانات الطلاب");
+  };
+  const downloadCsv = () => {
+    const header = "#,Name,Phone,Code,Grade,Joined\n";
+    const rows = students.map((s, i) =>
+      `${i + 1},"${(s.full_name || "").replace(/"/g, "'")}","${s.phone}","${s.access_code}","${s.grade_level}","${new Date(s.created_at).toISOString().slice(0, 10)}"`
+    ).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `students-${platform.slug}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} dir="rtl">
+        <div className="sticky top-0 bg-card border-b border-border p-5 flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-lg flex items-center gap-2"><Users className="w-5 h-5 text-blue-500" /> طلاب {platform.config?.platform_name || platform.teacher_name}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{students.length} طالب مسجل</p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={copyAll}><Copy className="w-3.5 h-3.5 ml-1" />نسخ</Button>
+            <Button size="sm" variant="outline" onClick={downloadCsv}><Download className="w-3.5 h-3.5 ml-1" />CSV</Button>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X className="w-5 h-5" /></button>
+          </div>
+        </div>
+        <div className="p-5">
+          {students.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">مفيش طلاب لسه</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground text-xs">
+                    <th className="text-start p-2">#</th>
+                    <th className="text-start p-2">الاسم</th>
+                    <th className="text-start p-2">التليفون</th>
+                    <th className="text-start p-2">الكود</th>
+                    <th className="text-start p-2">الصف</th>
+                    <th className="text-start p-2">التاريخ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((s, i) => (
+                    <tr key={s.id} className="border-b border-border/50 hover:bg-muted/30">
+                      <td className="p-2 text-muted-foreground">{i + 1}</td>
+                      <td className="p-2 font-medium">{s.full_name}</td>
+                      <td className="p-2 font-mono text-xs">{s.phone}</td>
+                      <td className="p-2 font-mono text-xs text-primary">{s.access_code}</td>
+                      <td className="p-2">{s.grade_level}</td>
+                      <td className="p-2 text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("ar-EG")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
