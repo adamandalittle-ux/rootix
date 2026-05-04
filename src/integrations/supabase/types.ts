@@ -390,8 +390,11 @@ export type Database = {
           full_name: string
           grade_level: string
           id: string
+          lesson_time: string | null
           phone: string
           platform_id: string
+          points: number
+          schedule_days: Json
         }
         Insert: {
           access_code: string
@@ -399,8 +402,11 @@ export type Database = {
           full_name: string
           grade_level: string
           id?: string
+          lesson_time?: string | null
           phone: string
           platform_id: string
+          points?: number
+          schedule_days?: Json
         }
         Update: {
           access_code?: string
@@ -408,8 +414,11 @@ export type Database = {
           full_name?: string
           grade_level?: string
           id?: string
+          lesson_time?: string | null
           phone?: string
           platform_id?: string
+          points?: number
+          schedule_days?: Json
         }
         Relationships: [
           {
@@ -420,6 +429,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      video_watch: {
+        Row: {
+          content_id: string
+          created_at: string
+          id: string
+          percent: number
+          platform_id: string
+          seconds: number
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          content_id: string
+          created_at?: string
+          id?: string
+          percent?: number
+          platform_id: string
+          seconds?: number
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          content_id?: string
+          created_at?: string
+          id?: string
+          percent?: number
+          platform_id?: string
+          seconds?: number
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
