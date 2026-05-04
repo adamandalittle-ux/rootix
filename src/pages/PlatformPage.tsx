@@ -32,6 +32,9 @@ interface Student {
   phone: string;
   grade_level: string;
   access_code: string;
+  points?: number;
+  schedule_days?: string[];
+  lesson_time?: string;
 }
 
 export default function PlatformPage() {
