@@ -391,6 +391,7 @@ export default function PlatformPage() {
     { k: "pdf", label: "ملفات PDF", icon: FileText },
     { k: "question", label: "بنك الأسئلة", icon: ListChecks },
     { k: "exam", label: cfg.exams_label || "الامتحانات", icon: BookOpen },
+    { k: "leaderboard", label: "🏆 المتصدرين", icon: Trophy },
   ];
   if (platform.template_tier === "pro" && cfg.ai_summary_enabled) {
     tabs.push({ k: "ai_summary", label: "ملخص بـ AI", icon: Sparkles });
