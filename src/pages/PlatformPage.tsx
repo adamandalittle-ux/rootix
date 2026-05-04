@@ -514,26 +514,26 @@ function ContentCard({ item, student, primary, platformId }: any) {
     const ytEmbed = getYoutubeEmbed(rawUrl);
     const isYoutube = !!ytEmbed;
     return (
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="relative aspect-video bg-black">
+      <div className="rounded-xl border border-border bg-card overflow-hidden group hover:border-primary/50 transition-all">
+        <div className="relative aspect-video bg-black overflow-hidden">
           {playing ? (
-            <>
-              {isYoutube ? (
-                <iframe
-                  src={ytEmbed!}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full"
-                />
-              ) : (
-                <video src={rawUrl} controls controlsList="nodownload" className="w-full h-full" />
-              )}
-              <Watermark name={student.full_name} phone={student.phone} />
-            </>
+            <VideoPlayer
+              url={rawUrl}
+              isYoutube={isYoutube}
+              embedSrc={ytEmbed}
+              student={student}
+              platformId={platformId}
+              contentId={item.id}
+              primary={primary}
+            />
           ) : (
-            <button onClick={() => setPlaying(true)} className="w-full h-full flex items-center justify-center text-white">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: primary }}>
-                <Video className="w-6 h-6" />
+            <button onClick={() => setPlaying(true)} className="w-full h-full flex items-center justify-center text-white relative group">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="w-20 h-20 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 relative z-10" style={{ background: primary, boxShadow: `0 12px 32px -8px ${primary}` }}>
+                <Video className="w-8 h-8" />
+              </div>
+              <div className="absolute bottom-2 left-2 text-xs px-2 py-1 rounded bg-black/60 backdrop-blur text-white font-bold">
+                ▶ تشغيل
               </div>
             </button>
           )}
