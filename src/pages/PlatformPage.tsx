@@ -168,6 +168,14 @@ export default function PlatformPage() {
       toast.error("املأ كل البيانات");
       return;
     }
+    if (form.schedule_days.length === 0) {
+      toast.error("اختار معاد الحصة (الأيام)");
+      return;
+    }
+    if (!form.lesson_time) {
+      toast.error("اكتب ساعة الحصة");
+      return;
+    }
     const isOpenGate = platform.gate_mode === "open";
     const accessCode = isOpenGate ? "ab" + Math.floor(100 + Math.random() * 99900) : code.trim();
 
@@ -179,6 +187,8 @@ export default function PlatformPage() {
         full_name: form.full_name,
         phone: form.phone,
         grade_level: form.grade_level,
+        schedule_days: form.schedule_days as any,
+        lesson_time: form.lesson_time,
       })
       .select()
       .maybeSingle();
@@ -198,6 +208,20 @@ export default function PlatformPage() {
     setStep("dashboard");
     toast.success("تم التسجيل بنجاح، أهلاً بيك! 🎉");
   };
+
+  // Load leaderboard when tab opens
+  useEffect(() => {
+    if (activeTab !== "leaderboard" || !platform) return;
+    (async () => {
+      const { data } = await supabase
+        .from("students")
+        .select("id,full_name,grade_level,points")
+        .eq("platform_id", platform.id)
+        .order("points", { ascending: false })
+        .limit(50);
+      setLeaderboard(data || []);
+    })();
+  }, [activeTab, platform]);
 
   const logout = () => {
     localStorage.removeItem(`rootix_student_${slug}`);
