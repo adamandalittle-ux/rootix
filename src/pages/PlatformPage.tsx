@@ -562,22 +562,118 @@ function ContentCard({ item, student, primary, platformId }: any) {
   return null;
 }
 
-function Watermark({ name, phone }: { name: string; phone: string }) {
-  const [pos, setPos] = useState({ x: 20, y: 20 });
+function VideoPlayer({ url, isYoutube, embedSrc, student, platformId, contentId, primary }: any) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [percent, setPercent] = useState(0);
+
+  // Track HTML5 video progress
   useEffect(() => {
-    const i = setInterval(() => {
-      setPos({ x: Math.random() * 70 + 5, y: Math.random() * 70 + 5 });
-    }, 3000);
-    return () => clearInterval(i);
-  }, []);
+    if (isYoutube) return;
+    const v = videoRef.current;
+    if (!v) return;
+    let lastSave = 0;
+    const onTime = async () => {
+      if (!v.duration) return;
+      const pct = Math.min(100, Math.round((v.currentTime / v.duration) * 100));
+      setPercent(pct);
+      if (Date.now() - lastSave > 5000) {
+        lastSave = Date.now();
+        await supabase.from("video_watch").upsert({
+          platform_id: platformId,
+          student_id: student.id,
+          content_id: contentId,
+          percent: pct,
+          seconds: Math.round(v.currentTime),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "student_id,content_id" });
+      }
+    };
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, [isYoutube, platformId, student.id, contentId]);
+
   return (
-    <div
-      className="absolute pointer-events-none text-white/30 text-sm font-bold leading-tight transition-all duration-1000"
-      style={{ left: `${pos.x}%`, top: `${pos.y}%`, textShadow: "0 0 4px #000" }}
-    >
-      {name}
-      <br />
-      {phone}
+    <div ref={containerRef} className="absolute inset-0 w-full h-full">
+      {isYoutube ? (
+        // Hide YouTube branding aggressively
+        <iframe
+          src={`${embedSrc}&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=1&playsinline=1`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+          className="w-full h-full"
+        />
+      ) : (
+        <video ref={videoRef} src={url} controls controlsList="nodownload noremoteplayback" disablePictureInPicture className="w-full h-full" />
+      )}
+      {/* Branding cover — hides "YouTube" logo top-right */}
+      {isYoutube && (
+        <div className="absolute top-0 right-0 h-12 w-32 pointer-events-none" style={{ background: `linear-gradient(to left, rgba(0,0,0,0.95), transparent)` }}>
+          <div className="absolute top-2 right-2 text-[10px] font-bold text-white/80 px-2 py-0.5 rounded" style={{ background: primary }}>
+            🎬 المنصة
+          </div>
+        </div>
+      )}
+      <Watermark name={student.full_name} phone={student.phone} />
+      {!isYoutube && percent > 0 && (
+        <div className="absolute bottom-12 left-2 text-[10px] bg-black/70 text-white px-2 py-0.5 rounded">{percent}%</div>
+      )}
+    </div>
+  );
+}
+
+function Watermark({ name, phone }: { name: string; phone: string }) {
+  // Multiple repeating watermarks — visible even in fullscreen
+  const tiles = [
+    { x: 10, y: 15 }, { x: 70, y: 25 },
+    { x: 25, y: 55 }, { x: 80, y: 70 },
+    { x: 45, y: 85 },
+  ];
+  return (
+    <div className="absolute inset-0 pointer-events-none select-none overflow-hidden" style={{ zIndex: 2147483647 }}>
+      {tiles.map((t, i) => (
+        <div
+          key={i}
+          className="absolute text-white/25 text-[11px] font-bold leading-tight"
+          style={{ left: `${t.x}%`, top: `${t.y}%`, textShadow: "0 0 6px rgba(0,0,0,0.9)", transform: "rotate(-15deg)" }}
+        >
+          {name}<br />{phone}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Leaderboard({ items, primary, accent, myId }: any) {
+  if (!items || items.length === 0) {
+    return <div className="text-center py-16 text-muted-foreground">لا يوجد متصدرين بعد — كن أنت الأول! 🏆</div>;
+  }
+  return (
+    <div className="space-y-2">
+      <div className="rounded-2xl p-5 mb-4 text-center" style={{ background: `linear-gradient(135deg, ${primary}25, ${accent}15)`, border: `1px solid ${primary}40` }}>
+        <Trophy className="w-10 h-10 mx-auto mb-2" style={{ color: primary }} />
+        <h2 className="text-xl font-black">🏆 لوحة المتصدرين</h2>
+        <p className="text-xs text-muted-foreground mt-1">كل سؤال صح = نقطة. حل كتير علشان تطلع رقم 1!</p>
+      </div>
+      {items.map((s: any, i: number) => {
+        const isMe = s.id === myId;
+        const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`;
+        return (
+          <div key={s.id} className="rounded-xl border p-3 flex items-center gap-3 transition-all"
+            style={{
+              borderColor: isMe ? primary : "hsl(var(--border))",
+              background: isMe ? `${primary}15` : i < 3 ? `${primary}08` : "hsl(var(--card))",
+              boxShadow: isMe ? `0 8px 24px -12px ${primary}` : undefined,
+            }}>
+            <div className="w-10 text-center text-lg font-black">{medal}</div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm truncate">{s.full_name} {isMe && <span className="text-xs" style={{ color: primary }}>(أنت)</span>}</div>
+              <div className="text-xs text-muted-foreground">{s.grade_level}</div>
+            </div>
+            <div className="text-lg font-black" style={{ color: primary }}>{s.points || 0} <span className="text-xs">نقطة</span></div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -602,8 +698,16 @@ function ExamCard({ item, student, primary, platformId }: any) {
       total: questions.length,
       answers: answers as any,
     });
+    // Award points: 1 per correct answer
+    if (score > 0) {
+      await supabase.from("students").update({ points: (student.points || 0) + score }).eq("id", student.id);
+      // Update local cache
+      const updated = { ...student, points: (student.points || 0) + score };
+      const slugMatch = window.location.pathname.split("/").pop();
+      localStorage.setItem(`rootix_student_${slugMatch}`, JSON.stringify(updated));
+    }
     setSubmitted({ score, total: questions.length });
-    toast.success(`درجتك: ${score}/${questions.length}`);
+    toast.success(`درجتك: ${score}/${questions.length} • +${score} نقطة 🌟`);
   };
 
   if (!showExam) {
@@ -611,7 +715,7 @@ function ExamCard({ item, student, primary, platformId }: any) {
       <button onClick={() => setShowExam(true)} className="rounded-xl border border-border bg-card p-4 text-start hover:border-primary transition-colors">
         <ListChecks className="w-8 h-8 mb-2" style={{ color: primary }} />
         <div className="font-medium text-sm">{item.title}</div>
-        <div className="text-xs text-muted-foreground mt-1">{questions.length} سؤال</div>
+        <div className="text-xs text-muted-foreground mt-1">{questions.length} سؤال • +{questions.length} نقطة محتملة</div>
       </button>
     );
   }
@@ -627,7 +731,7 @@ function ExamCard({ item, student, primary, platformId }: any) {
           <div className="text-4xl font-bold mb-2" style={{ color: primary }}>
             {submitted.score}/{submitted.total}
           </div>
-          <div className="text-muted-foreground">تم إرسال النتيجة</div>
+          <div className="text-muted-foreground">تم إرسال النتيجة • +{submitted.score} نقطة</div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -678,14 +782,15 @@ function AiSummarySection({ platform, student }: any) {
 function getYoutubeEmbed(url: string): string | null {
   try {
     const u = new URL(url);
+    const params = "?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&playsinline=1";
     const liveMatch = u.pathname.match(/^\/live\/([a-zA-Z0-9_-]+)/);
-    if (liveMatch) return `https://www.youtube.com/embed/${liveMatch[1]}?autoplay=1`;
+    if (liveMatch) return `https://www.youtube.com/embed/${liveMatch[1]}${params}`;
     if (u.hostname.includes("youtu.be")) {
       const id = u.pathname.replace("/", "");
-      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1`;
+      if (id) return `https://www.youtube.com/embed/${id}${params}`;
     }
     const v = u.searchParams.get("v");
-    if (v) return `https://www.youtube.com/embed/${v}?autoplay=1`;
+    if (v) return `https://www.youtube.com/embed/${v}${params}`;
     return null;
   } catch {
     return null;
