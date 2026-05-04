@@ -319,8 +319,60 @@ export default function PlatformPage() {
                   <option key={g} value={g}>{g}</option>
                 ))}
               </select>
-              <Button onClick={register} className="w-full font-semibold" style={{ backgroundColor: primary, color: "#fff" }}>
-                دخول المنصة
+
+              {/* Schedule picker — fancy */}
+              <div className="rounded-xl border border-border bg-background/50 p-3 space-y-2">
+                <div className="text-xs font-semibold flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" style={{ color: primary }} /> معاد الحصة (اختار الأيام)</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { d: "السبت", short: "س" },
+                    { d: "الأحد", short: "ح" },
+                    { d: "الاثنين", short: "ن" },
+                    { d: "الثلاثاء", short: "ث" },
+                    { d: "الأربعاء", short: "ر" },
+                    { d: "الخميس", short: "خ" },
+                    { d: "الجمعة", short: "ج" },
+                  ].map((day) => {
+                    const active = form.schedule_days.includes(day.d);
+                    return (
+                      <button
+                        key={day.d}
+                        type="button"
+                        onClick={() => setForm({
+                          ...form,
+                          schedule_days: active
+                            ? form.schedule_days.filter(x => x !== day.d)
+                            : [...form.schedule_days, day.d],
+                        })}
+                        className="rounded-lg border-2 p-2 text-xs font-bold transition-all hover:scale-105"
+                        style={{
+                          borderColor: active ? primary : "hsl(var(--border))",
+                          background: active ? `${primary}25` : "transparent",
+                          color: active ? primary : undefined,
+                          boxShadow: active ? `0 4px 12px -4px ${primary}66` : undefined,
+                        }}
+                      >
+                        {day.d}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-[10px] text-muted-foreground">مثال: السبت + الثلاثاء، أو الأحد + الأربعاء</div>
+              </div>
+
+              {/* Lesson time */}
+              <div className="rounded-xl border border-border bg-background/50 p-3 space-y-2">
+                <div className="text-xs font-semibold flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" style={{ color: primary }} /> ساعة الحصة</div>
+                <Input
+                  type="time"
+                  value={form.lesson_time}
+                  onChange={(e) => setForm({ ...form, lesson_time: e.target.value })}
+                  className="text-center font-bold"
+                />
+              </div>
+
+              <Button onClick={register} className="w-full font-semibold text-base h-11" style={{ backgroundColor: primary, color: "#fff", boxShadow: `0 8px 24px -8px ${primary}99` }}>
+                ✨ دخول المنصة
               </Button>
             </div>
           )}
