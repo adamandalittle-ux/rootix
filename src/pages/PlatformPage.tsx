@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { BookOpen, Video, FileText, ListChecks, Sparkles, LogOut, Lock } from "lucide-react";
+import { BookOpen, Video, FileText, ListChecks, Sparkles, LogOut, Lock, Trophy, Calendar, Clock } from "lucide-react";
 import { getTemplateById, hexToHslString, type Template } from "@/lib/templates";
 
 interface Platform {
@@ -32,6 +32,9 @@ interface Student {
   phone: string;
   grade_level: string;
   access_code: string;
+  points?: number;
+  schedule_days?: string[];
+  lesson_time?: string;
 }
 
 export default function PlatformPage() {
@@ -41,9 +44,10 @@ export default function PlatformPage() {
   const [student, setStudent] = useState<Student | null>(null);
   const [step, setStep] = useState<"code" | "register" | "dashboard">("code");
   const [code, setCode] = useState("");
-  const [form, setForm] = useState({ full_name: "", phone: "", grade_level: "" });
+  const [form, setForm] = useState<{ full_name: string; phone: string; grade_level: string; schedule_days: string[]; lesson_time: string }>({ full_name: "", phone: "", grade_level: "", schedule_days: [], lesson_time: "" });
   const [content, setContent] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"video" | "pdf" | "question" | "exam" | "ai_summary">("video");
+  const [activeTab, setActiveTab] = useState<"video" | "pdf" | "question" | "exam" | "leaderboard" | "ai_summary">("video");
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   useEffect(() => {
     loadPlatform();
@@ -164,6 +168,14 @@ export default function PlatformPage() {
       toast.error("املأ كل البيانات");
       return;
     }
+    if (form.schedule_days.length === 0) {
+      toast.error("اختار معاد الحصة (الأيام)");
+      return;
+    }
+    if (!form.lesson_time) {
+      toast.error("اكتب ساعة الحصة");
+      return;
+    }
     const isOpenGate = platform.gate_mode === "open";
     const accessCode = isOpenGate ? "ab" + Math.floor(100 + Math.random() * 99900) : code.trim();
 
@@ -175,6 +187,8 @@ export default function PlatformPage() {
         full_name: form.full_name,
         phone: form.phone,
         grade_level: form.grade_level,
+        schedule_days: form.schedule_days as any,
+        lesson_time: form.lesson_time,
       })
       .select()
       .maybeSingle();
@@ -194,6 +208,20 @@ export default function PlatformPage() {
     setStep("dashboard");
     toast.success("تم التسجيل بنجاح، أهلاً بيك! 🎉");
   };
+
+  // Load leaderboard when tab opens
+  useEffect(() => {
+    if (activeTab !== "leaderboard" || !platform) return;
+    (async () => {
+      const { data } = await supabase
+        .from("students")
+        .select("id,full_name,grade_level,points")
+        .eq("platform_id", platform.id)
+        .order("points", { ascending: false })
+        .limit(50);
+      setLeaderboard(data || []);
+    })();
+  }, [activeTab, platform]);
 
   const logout = () => {
     localStorage.removeItem(`rootix_student_${slug}`);
@@ -291,8 +319,60 @@ export default function PlatformPage() {
                   <option key={g} value={g}>{g}</option>
                 ))}
               </select>
-              <Button onClick={register} className="w-full font-semibold" style={{ backgroundColor: primary, color: "#fff" }}>
-                دخول المنصة
+
+              {/* Schedule picker — fancy */}
+              <div className="rounded-xl border border-border bg-background/50 p-3 space-y-2">
+                <div className="text-xs font-semibold flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" style={{ color: primary }} /> معاد الحصة (اختار الأيام)</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { d: "السبت", short: "س" },
+                    { d: "الأحد", short: "ح" },
+                    { d: "الاثنين", short: "ن" },
+                    { d: "الثلاثاء", short: "ث" },
+                    { d: "الأربعاء", short: "ر" },
+                    { d: "الخميس", short: "خ" },
+                    { d: "الجمعة", short: "ج" },
+                  ].map((day) => {
+                    const active = form.schedule_days.includes(day.d);
+                    return (
+                      <button
+                        key={day.d}
+                        type="button"
+                        onClick={() => setForm({
+                          ...form,
+                          schedule_days: active
+                            ? form.schedule_days.filter(x => x !== day.d)
+                            : [...form.schedule_days, day.d],
+                        })}
+                        className="rounded-lg border-2 p-2 text-xs font-bold transition-all hover:scale-105"
+                        style={{
+                          borderColor: active ? primary : "hsl(var(--border))",
+                          background: active ? `${primary}25` : "transparent",
+                          color: active ? primary : undefined,
+                          boxShadow: active ? `0 4px 12px -4px ${primary}66` : undefined,
+                        }}
+                      >
+                        {day.d}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-[10px] text-muted-foreground">مثال: السبت + الثلاثاء، أو الأحد + الأربعاء</div>
+              </div>
+
+              {/* Lesson time */}
+              <div className="rounded-xl border border-border bg-background/50 p-3 space-y-2">
+                <div className="text-xs font-semibold flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" style={{ color: primary }} /> ساعة الحصة</div>
+                <Input
+                  type="time"
+                  value={form.lesson_time}
+                  onChange={(e) => setForm({ ...form, lesson_time: e.target.value })}
+                  className="text-center font-bold"
+                />
+              </div>
+
+              <Button onClick={register} className="w-full font-semibold text-base h-11" style={{ backgroundColor: primary, color: "#fff", boxShadow: `0 8px 24px -8px ${primary}99` }}>
+                ✨ دخول المنصة
               </Button>
             </div>
           )}
@@ -311,6 +391,7 @@ export default function PlatformPage() {
     { k: "pdf", label: "ملفات PDF", icon: FileText },
     { k: "question", label: "بنك الأسئلة", icon: ListChecks },
     { k: "exam", label: cfg.exams_label || "الامتحانات", icon: BookOpen },
+    { k: "leaderboard", label: "🏆 المتصدرين", icon: Trophy },
   ];
   if (platform.template_tier === "pro" && cfg.ai_summary_enabled) {
     tabs.push({ k: "ai_summary", label: "ملخص بـ AI", icon: Sparkles });
@@ -377,7 +458,7 @@ export default function PlatformPage() {
         </div>
 
         {/* Tabs */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-6">
           {tabs.map((t) => (
             <button
               key={t.k}
@@ -397,9 +478,20 @@ export default function PlatformPage() {
           ))}
         </div>
 
+        {/* My points banner */}
+        {student && (
+          <div className="mb-4 rounded-2xl border p-3 flex items-center gap-3" style={{ borderColor: `${primary}40`, background: `${primary}10` }}>
+            <Trophy className="w-5 h-5" style={{ color: primary }} />
+            <div className="text-sm">نقاطك: <strong style={{ color: primary }}>{student.points || 0}</strong></div>
+            <div className="text-xs text-muted-foreground mr-auto">كل سؤال صح = نقطة 🌟</div>
+          </div>
+        )}
+
         {/* Content */}
         {activeTab === "ai_summary" ? (
           <AiSummarySection platform={platform} student={student!} />
+        ) : activeTab === "leaderboard" ? (
+          <Leaderboard items={leaderboard} primary={primary} accent={accent} myId={student?.id} />
         ) : filteredContent.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">لا يوجد محتوى بعد في هذا القسم</div>
         ) : (
@@ -422,26 +514,26 @@ function ContentCard({ item, student, primary, platformId }: any) {
     const ytEmbed = getYoutubeEmbed(rawUrl);
     const isYoutube = !!ytEmbed;
     return (
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="relative aspect-video bg-black">
+      <div className="rounded-xl border border-border bg-card overflow-hidden group hover:border-primary/50 transition-all">
+        <div className="relative aspect-video bg-black overflow-hidden">
           {playing ? (
-            <>
-              {isYoutube ? (
-                <iframe
-                  src={ytEmbed!}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full"
-                />
-              ) : (
-                <video src={rawUrl} controls controlsList="nodownload" className="w-full h-full" />
-              )}
-              <Watermark name={student.full_name} phone={student.phone} />
-            </>
+            <VideoPlayer
+              url={rawUrl}
+              isYoutube={isYoutube}
+              embedSrc={ytEmbed}
+              student={student}
+              platformId={platformId}
+              contentId={item.id}
+              primary={primary}
+            />
           ) : (
-            <button onClick={() => setPlaying(true)} className="w-full h-full flex items-center justify-center text-white">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: primary }}>
-                <Video className="w-6 h-6" />
+            <button onClick={() => setPlaying(true)} className="w-full h-full flex items-center justify-center text-white relative group">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="w-20 h-20 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 relative z-10" style={{ background: primary, boxShadow: `0 12px 32px -8px ${primary}` }}>
+                <Video className="w-8 h-8" />
+              </div>
+              <div className="absolute bottom-2 left-2 text-xs px-2 py-1 rounded bg-black/60 backdrop-blur text-white font-bold">
+                ▶ تشغيل
               </div>
             </button>
           )}
@@ -470,22 +562,118 @@ function ContentCard({ item, student, primary, platformId }: any) {
   return null;
 }
 
-function Watermark({ name, phone }: { name: string; phone: string }) {
-  const [pos, setPos] = useState({ x: 20, y: 20 });
+function VideoPlayer({ url, isYoutube, embedSrc, student, platformId, contentId, primary }: any) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [percent, setPercent] = useState(0);
+
+  // Track HTML5 video progress
   useEffect(() => {
-    const i = setInterval(() => {
-      setPos({ x: Math.random() * 70 + 5, y: Math.random() * 70 + 5 });
-    }, 3000);
-    return () => clearInterval(i);
-  }, []);
+    if (isYoutube) return;
+    const v = videoRef.current;
+    if (!v) return;
+    let lastSave = 0;
+    const onTime = async () => {
+      if (!v.duration) return;
+      const pct = Math.min(100, Math.round((v.currentTime / v.duration) * 100));
+      setPercent(pct);
+      if (Date.now() - lastSave > 5000) {
+        lastSave = Date.now();
+        await supabase.from("video_watch").upsert({
+          platform_id: platformId,
+          student_id: student.id,
+          content_id: contentId,
+          percent: pct,
+          seconds: Math.round(v.currentTime),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "student_id,content_id" });
+      }
+    };
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, [isYoutube, platformId, student.id, contentId]);
+
   return (
-    <div
-      className="absolute pointer-events-none text-white/30 text-sm font-bold leading-tight transition-all duration-1000"
-      style={{ left: `${pos.x}%`, top: `${pos.y}%`, textShadow: "0 0 4px #000" }}
-    >
-      {name}
-      <br />
-      {phone}
+    <div ref={containerRef} className="absolute inset-0 w-full h-full">
+      {isYoutube ? (
+        // Hide YouTube branding aggressively
+        <iframe
+          src={`${embedSrc}&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=1&playsinline=1`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+          className="w-full h-full"
+        />
+      ) : (
+        <video ref={videoRef} src={url} controls controlsList="nodownload noremoteplayback" disablePictureInPicture className="w-full h-full" />
+      )}
+      {/* Branding cover — hides "YouTube" logo top-right */}
+      {isYoutube && (
+        <div className="absolute top-0 right-0 h-12 w-32 pointer-events-none" style={{ background: `linear-gradient(to left, rgba(0,0,0,0.95), transparent)` }}>
+          <div className="absolute top-2 right-2 text-[10px] font-bold text-white/80 px-2 py-0.5 rounded" style={{ background: primary }}>
+            🎬 المنصة
+          </div>
+        </div>
+      )}
+      <Watermark name={student.full_name} phone={student.phone} />
+      {!isYoutube && percent > 0 && (
+        <div className="absolute bottom-12 left-2 text-[10px] bg-black/70 text-white px-2 py-0.5 rounded">{percent}%</div>
+      )}
+    </div>
+  );
+}
+
+function Watermark({ name, phone }: { name: string; phone: string }) {
+  // Multiple repeating watermarks — visible even in fullscreen
+  const tiles = [
+    { x: 10, y: 15 }, { x: 70, y: 25 },
+    { x: 25, y: 55 }, { x: 80, y: 70 },
+    { x: 45, y: 85 },
+  ];
+  return (
+    <div className="absolute inset-0 pointer-events-none select-none overflow-hidden" style={{ zIndex: 2147483647 }}>
+      {tiles.map((t, i) => (
+        <div
+          key={i}
+          className="absolute text-white/25 text-[11px] font-bold leading-tight"
+          style={{ left: `${t.x}%`, top: `${t.y}%`, textShadow: "0 0 6px rgba(0,0,0,0.9)", transform: "rotate(-15deg)" }}
+        >
+          {name}<br />{phone}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Leaderboard({ items, primary, accent, myId }: any) {
+  if (!items || items.length === 0) {
+    return <div className="text-center py-16 text-muted-foreground">لا يوجد متصدرين بعد — كن أنت الأول! 🏆</div>;
+  }
+  return (
+    <div className="space-y-2">
+      <div className="rounded-2xl p-5 mb-4 text-center" style={{ background: `linear-gradient(135deg, ${primary}25, ${accent}15)`, border: `1px solid ${primary}40` }}>
+        <Trophy className="w-10 h-10 mx-auto mb-2" style={{ color: primary }} />
+        <h2 className="text-xl font-black">🏆 لوحة المتصدرين</h2>
+        <p className="text-xs text-muted-foreground mt-1">كل سؤال صح = نقطة. حل كتير علشان تطلع رقم 1!</p>
+      </div>
+      {items.map((s: any, i: number) => {
+        const isMe = s.id === myId;
+        const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`;
+        return (
+          <div key={s.id} className="rounded-xl border p-3 flex items-center gap-3 transition-all"
+            style={{
+              borderColor: isMe ? primary : "hsl(var(--border))",
+              background: isMe ? `${primary}15` : i < 3 ? `${primary}08` : "hsl(var(--card))",
+              boxShadow: isMe ? `0 8px 24px -12px ${primary}` : undefined,
+            }}>
+            <div className="w-10 text-center text-lg font-black">{medal}</div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm truncate">{s.full_name} {isMe && <span className="text-xs" style={{ color: primary }}>(أنت)</span>}</div>
+              <div className="text-xs text-muted-foreground">{s.grade_level}</div>
+            </div>
+            <div className="text-lg font-black" style={{ color: primary }}>{s.points || 0} <span className="text-xs">نقطة</span></div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -510,8 +698,16 @@ function ExamCard({ item, student, primary, platformId }: any) {
       total: questions.length,
       answers: answers as any,
     });
+    // Award points: 1 per correct answer
+    if (score > 0) {
+      await supabase.from("students").update({ points: (student.points || 0) + score }).eq("id", student.id);
+      // Update local cache
+      const updated = { ...student, points: (student.points || 0) + score };
+      const slugMatch = window.location.pathname.split("/").pop();
+      localStorage.setItem(`rootix_student_${slugMatch}`, JSON.stringify(updated));
+    }
     setSubmitted({ score, total: questions.length });
-    toast.success(`درجتك: ${score}/${questions.length}`);
+    toast.success(`درجتك: ${score}/${questions.length} • +${score} نقطة 🌟`);
   };
 
   if (!showExam) {
@@ -519,7 +715,7 @@ function ExamCard({ item, student, primary, platformId }: any) {
       <button onClick={() => setShowExam(true)} className="rounded-xl border border-border bg-card p-4 text-start hover:border-primary transition-colors">
         <ListChecks className="w-8 h-8 mb-2" style={{ color: primary }} />
         <div className="font-medium text-sm">{item.title}</div>
-        <div className="text-xs text-muted-foreground mt-1">{questions.length} سؤال</div>
+        <div className="text-xs text-muted-foreground mt-1">{questions.length} سؤال • +{questions.length} نقطة محتملة</div>
       </button>
     );
   }
@@ -535,7 +731,7 @@ function ExamCard({ item, student, primary, platformId }: any) {
           <div className="text-4xl font-bold mb-2" style={{ color: primary }}>
             {submitted.score}/{submitted.total}
           </div>
-          <div className="text-muted-foreground">تم إرسال النتيجة</div>
+          <div className="text-muted-foreground">تم إرسال النتيجة • +{submitted.score} نقطة</div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -586,14 +782,15 @@ function AiSummarySection({ platform, student }: any) {
 function getYoutubeEmbed(url: string): string | null {
   try {
     const u = new URL(url);
+    const params = "?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&playsinline=1";
     const liveMatch = u.pathname.match(/^\/live\/([a-zA-Z0-9_-]+)/);
-    if (liveMatch) return `https://www.youtube.com/embed/${liveMatch[1]}?autoplay=1`;
+    if (liveMatch) return `https://www.youtube.com/embed/${liveMatch[1]}${params}`;
     if (u.hostname.includes("youtu.be")) {
       const id = u.pathname.replace("/", "");
-      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1`;
+      if (id) return `https://www.youtube.com/embed/${id}${params}`;
     }
     const v = u.searchParams.get("v");
-    if (v) return `https://www.youtube.com/embed/${v}?autoplay=1`;
+    if (v) return `https://www.youtube.com/embed/${v}${params}`;
     return null;
   } catch {
     return null;

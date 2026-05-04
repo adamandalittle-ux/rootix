@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { LogOut, Users, CheckCircle, XCircle, Pause, Play, ArrowLeft, Phone, Calendar, AlertTriangle, TrendingUp, Eye, Trash2, Search, Copy, ExternalLink, Sparkles, Bell, Loader2, DollarSign, Clock, X } from "lucide-react";
+import { LogOut, Users, CheckCircle, XCircle, Pause, Play, ArrowLeft, Phone, Calendar, AlertTriangle, TrendingUp, TrendingDown, Eye, Trash2, Search, Copy, ExternalLink, Sparkles, Bell, Loader2, DollarSign, Clock, X, FileText, Download } from "lucide-react";
+import jsPDF from "jspdf";
 
 interface Platform {
   id: string;
@@ -53,6 +54,8 @@ export default function Admin() {
   const [paymentsModalFor, setPaymentsModalFor] = useState<Platform | null>(null);
   const [paymentsByPlatform, setPaymentsByPlatform] = useState<Record<string, any[]>>({});
   const [studentReportFor, setStudentReportFor] = useState<{ student: any; platform: Platform } | null>(null);
+  const [studentsModalFor, setStudentsModalFor] = useState<Platform | null>(null);
+  const [studentsModalData, setStudentsModalData] = useState<any[]>([]);
 
   useEffect(() => {
     if (localStorage.getItem("rootix_admin") === "1") setLoggedIn(true);
@@ -254,11 +257,94 @@ export default function Admin() {
   };
 
   const purgePlatform = async (id: string) => {
-    if (!confirm("⚠️ حذف نهائي! مش هترجع تاني. متأكد؟")) return;
+    if (!confirm("⚠️ حذف نهائي! هيتم مسح المنصة + الطلاب + المحتوى + الدفعات + الأكواد. مش هترجع تاني. متأكد؟")) return;
+    // Cascade delete: payments, students, codes, content, exam_results
+    await Promise.all([
+      supabase.from("platform_payments").delete().eq("platform_id", id),
+      supabase.from("students").delete().eq("platform_id", id),
+      supabase.from("student_codes").delete().eq("platform_id", id),
+      supabase.from("content").delete().eq("platform_id", id),
+      supabase.from("exam_results").delete().eq("platform_id", id),
+      supabase.from("rooty_actions").delete().eq("platform_id", id),
+      supabase.from("video_watch").delete().eq("platform_id", id),
+    ]);
     const { error } = await supabase.from("platforms").delete().eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success("تم الحذف نهائياً");
+    toast.success("تم الحذف نهائياً (المنصة + كل بياناتها)");
   };
+
+  const openStudents = async (p: Platform) => {
+    setStudentsModalFor(p);
+    const { data } = await supabase
+      .from("students")
+      .select("*")
+      .eq("platform_id", p.id)
+      .order("created_at", { ascending: false });
+    setStudentsModalData(data || []);
+  };
+
+  const generateCompanyReport = () => {
+    const doc = new jsPDF();
+    const totalPlatforms = platforms.filter(p => !p.deleted_at).length;
+    const activePlatforms = platforms.filter(p => (p.status === "active" || p.status === "approved") && !p.deleted_at).length;
+    const paidPlatforms = platforms.filter(p => p.payment_status === "paid" && !p.deleted_at).length;
+    const deletedPlatforms = platforms.filter(p => p.deleted_at || p.status === "deleted").length;
+    const totalStudents = globalStats.totalStudents;
+    const lifetimeRevenue = globalStats.lifetimeRevenue;
+    const monthlyRevenue = stats.revenue;
+    const losses = stats.losses;
+
+    doc.setFontSize(20);
+    doc.text("ROOTIX - Company Report", 105, 20, { align: "center" });
+    doc.setFontSize(10); doc.setTextColor(120);
+    doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 105, 28, { align: "center" });
+    doc.setDrawColor(180); doc.line(20, 34, 190, 34);
+
+    doc.setFontSize(14); doc.setTextColor(0);
+    doc.text("Platforms Overview", 20, 45);
+    doc.setFontSize(11); doc.setTextColor(60);
+    let y = 55;
+    const lines = [
+      `Total platforms (active arch): ${totalPlatforms}`,
+      `Active & running: ${activePlatforms}`,
+      `Paid (this cycle): ${paidPlatforms}`,
+      `Deleted/archived: ${deletedPlatforms}`,
+      `Teachers still with us: ${activePlatforms}`,
+      ``,
+      `Students (all platforms): ${totalStudents}`,
+      `New students today: ${globalStats.todayStudents}`,
+      `New students this week: ${globalStats.weekStudents}`,
+      ``,
+      `Monthly revenue: ${monthlyRevenue.toLocaleString("en-US")} EGP`,
+      `Lifetime revenue: ${lifetimeRevenue.toLocaleString("en-US")} EGP`,
+      `Estimated losses (deleted): ${losses.toLocaleString("en-US")} EGP`,
+      ``,
+      `Avg exam score: ${globalStats.avgScore}%`,
+      `Total content items: ${globalStats.totalContent}`,
+      `Total exams solved: ${globalStats.totalExams}`,
+    ];
+    lines.forEach(l => { doc.text(l, 20, y); y += 7; });
+
+    y += 4;
+    doc.setDrawColor(180); doc.line(20, y, 190, y); y += 10;
+    doc.setFontSize(14); doc.setTextColor(0);
+    doc.text("Top Platforms by Students", 20, y); y += 8;
+    doc.setFontSize(10); doc.setTextColor(60);
+    [...platforms]
+      .filter(p => !p.deleted_at)
+      .map(p => ({ ...p, _s: studentCounts[p.id] || 0 }))
+      .sort((a, b) => b._s - a._s)
+      .slice(0, 10)
+      .forEach((p, i) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(`${i + 1}. ${(p.config?.platform_name || p.teacher_name).slice(0, 40)} - ${p._s} students - ${p.payment_status}`, 20, y);
+        y += 6;
+      });
+
+    doc.save(`rootix-company-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success("تم تحميل تقرير الشركة 📊");
+  };
+
 
   const changePackage = async (p: Platform) => {
     const newCount = prompt(`غير عدد الطلاب للباقة (الحالي: ${p.package_students}):`, String(p.package_students));
@@ -399,6 +485,35 @@ export default function Admin() {
           </div>
         </div>
 
+        {/* Health arrow + report */}
+        {(() => {
+          const activeCount = stats.active || 0;
+          const paidCount = platforms.filter(p => (p.status === "active" || p.status === "approved") && p.payment_status === "paid").length;
+          const paidRatio = activeCount > 0 ? paidCount / activeCount : 0;
+          const isHealthy = paidRatio >= 0.6 && activeCount > 0;
+          const HealthIcon = isHealthy ? TrendingUp : TrendingDown;
+          const healthColor = isHealthy ? "text-green-500" : "text-destructive";
+          const healthBg = isHealthy ? "from-green-500/15 to-green-500/5 border-green-500/40" : "from-destructive/15 to-destructive/5 border-destructive/40";
+          const healthLabel = activeCount === 0 ? "ابدأ ضم منصات" : isHealthy ? "الموقع بصحة ممتازة 🚀" : "محتاج انتباه — متابعة الدفعات";
+          return (
+            <div className={`mb-6 rounded-2xl border-2 bg-gradient-to-l ${healthBg} p-5 flex items-center gap-4 flex-wrap`}>
+              <div className={`w-14 h-14 rounded-2xl bg-card flex items-center justify-center ${healthColor}`}>
+                <HealthIcon className="w-8 h-8" />
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <div className="text-xs text-muted-foreground">حالة الموقع</div>
+                <div className={`text-xl font-black ${healthColor}`}>{healthLabel}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {paidCount}/{activeCount} منصة نشطة دفعت • نسبة الدفع {Math.round(paidRatio * 100)}%
+                </div>
+              </div>
+              <Button onClick={generateCompanyReport} className="bg-primary text-primary-foreground">
+                <FileText className="w-4 h-4 ml-1" /> تقرير شامل عن الشركة (PDF)
+              </Button>
+            </div>
+          );
+        })()}
+
         {/* Operational stats */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
           {[
@@ -418,6 +533,7 @@ export default function Admin() {
             </div>
           ))}
         </div>
+
 
         {/* Top performers */}
         {(() => {
@@ -631,6 +747,9 @@ export default function Admin() {
                         <Button size="sm" onClick={() => setPaymentsModalFor(p)} className="bg-green-600 hover:bg-green-700 text-white">
                           <DollarSign className="w-4 h-4 ml-1" />الدفعات الشهرية
                         </Button>
+                        <Button size="sm" onClick={() => openStudents(p)} variant="outline" className="border-blue-500/40 text-blue-500 hover:bg-blue-500/10">
+                          <Users className="w-4 h-4 ml-1" />عرض الطلاب ({studentCounts[p.id] || 0})
+                        </Button>
                       </>
                     )}
                     {p.status === "paused" && (
@@ -682,6 +801,14 @@ export default function Admin() {
           payments={paymentsByPlatform[paymentsModalFor.id] || []}
           onClose={() => setPaymentsModalFor(null)}
           onChange={loadStudentCounts}
+        />
+      )}
+
+      {studentsModalFor && (
+        <StudentsListModal
+          platform={studentsModalFor}
+          students={studentsModalData}
+          onClose={() => { setStudentsModalFor(null); setStudentsModalData([]); }}
         />
       )}
     </div>
@@ -790,6 +917,74 @@ function PaymentsModal({ platform, payments, onClose, onChange }: { platform: Pl
               </div>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudentsListModal({ platform, students, onClose }: { platform: Platform; students: any[]; onClose: () => void }) {
+  const copyAll = () => {
+    const txt = students.map((s, i) => `${i + 1}. ${s.full_name} | ${s.phone} | كود: ${s.access_code} | ${s.grade_level}`).join("\n");
+    navigator.clipboard.writeText(txt);
+    toast.success("تم نسخ بيانات الطلاب");
+  };
+  const downloadCsv = () => {
+    const header = "#,Name,Phone,Code,Grade,Joined\n";
+    const rows = students.map((s, i) =>
+      `${i + 1},"${(s.full_name || "").replace(/"/g, "'")}","${s.phone}","${s.access_code}","${s.grade_level}","${new Date(s.created_at).toISOString().slice(0, 10)}"`
+    ).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `students-${platform.slug}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} dir="rtl">
+        <div className="sticky top-0 bg-card border-b border-border p-5 flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-lg flex items-center gap-2"><Users className="w-5 h-5 text-blue-500" /> طلاب {platform.config?.platform_name || platform.teacher_name}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{students.length} طالب مسجل</p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={copyAll}><Copy className="w-3.5 h-3.5 ml-1" />نسخ</Button>
+            <Button size="sm" variant="outline" onClick={downloadCsv}><Download className="w-3.5 h-3.5 ml-1" />CSV</Button>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X className="w-5 h-5" /></button>
+          </div>
+        </div>
+        <div className="p-5">
+          {students.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">مفيش طلاب لسه</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground text-xs">
+                    <th className="text-start p-2">#</th>
+                    <th className="text-start p-2">الاسم</th>
+                    <th className="text-start p-2">التليفون</th>
+                    <th className="text-start p-2">الكود</th>
+                    <th className="text-start p-2">الصف</th>
+                    <th className="text-start p-2">التاريخ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((s, i) => (
+                    <tr key={s.id} className="border-b border-border/50 hover:bg-muted/30">
+                      <td className="p-2 text-muted-foreground">{i + 1}</td>
+                      <td className="p-2 font-medium">{s.full_name}</td>
+                      <td className="p-2 font-mono text-xs">{s.phone}</td>
+                      <td className="p-2 font-mono text-xs text-primary">{s.access_code}</td>
+                      <td className="p-2">{s.grade_level}</td>
+                      <td className="p-2 text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString("ar-EG")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
