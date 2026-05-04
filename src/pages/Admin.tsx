@@ -803,6 +803,14 @@ export default function Admin() {
           onChange={loadStudentCounts}
         />
       )}
+
+      {studentsModalFor && (
+        <StudentsListModal
+          platform={studentsModalFor}
+          students={studentsModalData}
+          onClose={() => { setStudentsModalFor(null); setStudentsModalData([]); }}
+        />
+      )}
     </div>
   );
 }
