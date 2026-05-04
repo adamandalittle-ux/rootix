@@ -44,9 +44,10 @@ export default function PlatformPage() {
   const [student, setStudent] = useState<Student | null>(null);
   const [step, setStep] = useState<"code" | "register" | "dashboard">("code");
   const [code, setCode] = useState("");
-  const [form, setForm] = useState({ full_name: "", phone: "", grade_level: "" });
+  const [form, setForm] = useState<{ full_name: string; phone: string; grade_level: string; schedule_days: string[]; lesson_time: string }>({ full_name: "", phone: "", grade_level: "", schedule_days: [], lesson_time: "" });
   const [content, setContent] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"video" | "pdf" | "question" | "exam" | "ai_summary">("video");
+  const [activeTab, setActiveTab] = useState<"video" | "pdf" | "question" | "exam" | "leaderboard" | "ai_summary">("video");
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   useEffect(() => {
     loadPlatform();
