@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { BookOpen, Video, FileText, ListChecks, Sparkles, LogOut, Lock } from "lucide-react";
+import { BookOpen, Video, FileText, ListChecks, Sparkles, LogOut, Lock, Trophy, Calendar, Clock } from "lucide-react";
 import { getTemplateById, hexToHslString, type Template } from "@/lib/templates";
 
 interface Platform {
