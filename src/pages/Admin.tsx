@@ -747,6 +747,9 @@ export default function Admin() {
                         <Button size="sm" onClick={() => setPaymentsModalFor(p)} className="bg-green-600 hover:bg-green-700 text-white">
                           <DollarSign className="w-4 h-4 ml-1" />الدفعات الشهرية
                         </Button>
+                        <Button size="sm" onClick={() => openStudents(p)} variant="outline" className="border-blue-500/40 text-blue-500 hover:bg-blue-500/10">
+                          <Users className="w-4 h-4 ml-1" />عرض الطلاب ({studentCounts[p.id] || 0})
+                        </Button>
                       </>
                     )}
                     {p.status === "paused" && (
