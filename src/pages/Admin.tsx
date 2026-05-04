@@ -485,6 +485,35 @@ export default function Admin() {
           </div>
         </div>
 
+        {/* Health arrow + report */}
+        {(() => {
+          const activeCount = stats.active || 0;
+          const paidCount = platforms.filter(p => (p.status === "active" || p.status === "approved") && p.payment_status === "paid").length;
+          const paidRatio = activeCount > 0 ? paidCount / activeCount : 0;
+          const isHealthy = paidRatio >= 0.6 && activeCount > 0;
+          const HealthIcon = isHealthy ? TrendingUp : TrendingDown;
+          const healthColor = isHealthy ? "text-green-500" : "text-destructive";
+          const healthBg = isHealthy ? "from-green-500/15 to-green-500/5 border-green-500/40" : "from-destructive/15 to-destructive/5 border-destructive/40";
+          const healthLabel = activeCount === 0 ? "ابدأ ضم منصات" : isHealthy ? "الموقع بصحة ممتازة 🚀" : "محتاج انتباه — متابعة الدفعات";
+          return (
+            <div className={`mb-6 rounded-2xl border-2 bg-gradient-to-l ${healthBg} p-5 flex items-center gap-4 flex-wrap`}>
+              <div className={`w-14 h-14 rounded-2xl bg-card flex items-center justify-center ${healthColor}`}>
+                <HealthIcon className="w-8 h-8" />
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <div className="text-xs text-muted-foreground">حالة الموقع</div>
+                <div className={`text-xl font-black ${healthColor}`}>{healthLabel}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {paidCount}/{activeCount} منصة نشطة دفعت • نسبة الدفع {Math.round(paidRatio * 100)}%
+                </div>
+              </div>
+              <Button onClick={generateCompanyReport} className="bg-primary text-primary-foreground">
+                <FileText className="w-4 h-4 ml-1" /> تقرير شامل عن الشركة (PDF)
+              </Button>
+            </div>
+          );
+        })()}
+
         {/* Operational stats */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
           {[
@@ -504,6 +533,7 @@ export default function Admin() {
             </div>
           ))}
         </div>
+
 
         {/* Top performers */}
         {(() => {
