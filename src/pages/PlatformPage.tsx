@@ -458,7 +458,7 @@ export default function PlatformPage() {
         </div>
 
         {/* Tabs */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-6">
           {tabs.map((t) => (
             <button
               key={t.k}
@@ -478,9 +478,20 @@ export default function PlatformPage() {
           ))}
         </div>
 
+        {/* My points banner */}
+        {student && (
+          <div className="mb-4 rounded-2xl border p-3 flex items-center gap-3" style={{ borderColor: `${primary}40`, background: `${primary}10` }}>
+            <Trophy className="w-5 h-5" style={{ color: primary }} />
+            <div className="text-sm">نقاطك: <strong style={{ color: primary }}>{student.points || 0}</strong></div>
+            <div className="text-xs text-muted-foreground mr-auto">كل سؤال صح = نقطة 🌟</div>
+          </div>
+        )}
+
         {/* Content */}
         {activeTab === "ai_summary" ? (
           <AiSummarySection platform={platform} student={student!} />
+        ) : activeTab === "leaderboard" ? (
+          <Leaderboard items={leaderboard} primary={primary} accent={accent} myId={student?.id} />
         ) : filteredContent.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">لا يوجد محتوى بعد في هذا القسم</div>
         ) : (
