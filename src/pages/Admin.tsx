@@ -56,6 +56,7 @@ export default function Admin() {
   const [studentReportFor, setStudentReportFor] = useState<{ student: any; platform: Platform } | null>(null);
   const [studentsModalFor, setStudentsModalFor] = useState<Platform | null>(null);
   const [studentsModalData, setStudentsModalData] = useState<any[]>([]);
+  const [companyReportOpen, setCompanyReportOpen] = useState(false);
 
   useEffect(() => {
     if (localStorage.getItem("rootix_admin") === "1") setLoggedIn(true);
