@@ -227,7 +227,11 @@ Deno.serve(async (req) => {
         }
 
         const title = args.title || "بدون عنوان";
-        const grade_level = args.grade_level || (platform?.grade_levels?.[0] ?? "");
+        let grade_level = args.grade_level || (allowedGrades[0] ?? "");
+        if (allowedGrades.length && !allowedGrades.includes(grade_level)) {
+          executedActions.push({ name, ok: false, error: `الصف "${grade_level}" مش ضمن صفوف المنصة (${allowedGrades.join("، ")})` });
+          continue;
+        }
 
         let kind = "";
         let data: any = {};
