@@ -752,6 +752,17 @@ export default function Admin() {
           onClose={() => { setStudentsModalFor(null); setStudentsModalData([]); }}
         />
       )}
+
+      {companyReportOpen && (
+        <CompanyReportModal
+          platforms={platforms}
+          studentCounts={studentCounts}
+          paymentsByPlatform={paymentsByPlatform}
+          stats={stats}
+          globalStats={globalStats}
+          onClose={() => setCompanyReportOpen(false)}
+        />
+      )}
     </div>
   );
 }
