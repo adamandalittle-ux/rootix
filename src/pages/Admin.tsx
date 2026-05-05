@@ -448,8 +448,8 @@ export default function Admin() {
                   {paidCount}/{activeCount} منصة نشطة دفعت • نسبة الدفع {Math.round(paidRatio * 100)}%
                 </div>
               </div>
-              <Button onClick={generateCompanyReport} className="bg-primary text-primary-foreground">
-                <FileText className="w-4 h-4 ml-1" /> تقرير شامل عن الشركة (PDF)
+              <Button onClick={openCompanyReport} className="bg-primary text-primary-foreground">
+                <FileText className="w-4 h-4 ml-1" /> تقرير شامل عن الشركة
               </Button>
             </div>
           );
