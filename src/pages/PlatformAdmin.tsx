@@ -466,42 +466,98 @@ function StudentReportModal({ student, onClose }: { student: any; onClose: () =>
   else if (avgPct >= 50) { levelLabel = "متوسط"; levelColor = "text-yellow-500"; levelBg = "bg-yellow-500/10"; }
   else if (avgPct >= 30) { levelLabel = "ضعيف"; levelColor = "text-orange-500"; levelBg = "bg-orange-500/10"; }
 
-  const downloadPdf = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("Student Report", 105, 20, { align: "center" });
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    doc.text(`Name: ${student.full_name}`, 20, 35);
-    doc.text(`Phone: ${student.phone}`, 20, 43);
-    doc.text(`Grade: ${student.grade_level}`, 20, 51);
-    doc.text(`Access Code: ${student.access_code}`, 20, 59);
-    doc.text(`Joined: ${new Date(student.created_at).toLocaleDateString("en-US")}`, 20, 67);
+  const downloadPdf = async () => {
+    // Build a richer Arabic recommendation
+    let advice = "";
+    if (avgPct >= 85) advice = "الطالب متفوق جداً وملتزم. ينصح بإعطائه تحديات أصعب وأسئلة إثرائية للحفاظ على شغفه.";
+    else if (avgPct >= 70) advice = "الطالب مستواه جيد جداً ومحتاج بس مزيد من التدريب على الأسئلة الصعبة وتمرين أكتر على المسائل المركبة.";
+    else if (avgPct >= 50) advice = "الطالب مستواه متوسط ويحتاج لمراجعة منتظمة وحل أسئلة إضافية وتركيز أكبر على نقاط الضعف اللي ظهرت في الامتحانات.";
+    else if (avgPct >= 30) advice = "الطالب ضعيف ويحتاج إلى متابعة دقيقة من ولي الأمر، إعادة شرح الدروس الأساسية، وحصص دعم إضافية.";
+    else advice = "الطالب يحتاج إلى تدخل عاجل من المدرس وولي الأمر، إعادة بناء أساسياته في المادة، ومتابعة يومية لتحسن مستواه.";
 
-    doc.setDrawColor(180); doc.line(20, 73, 190, 73);
+    const examsRows = results.length === 0
+      ? `<tr><td colspan="4" style="text-align:center;padding:14px;color:#777">لم يحل أي امتحانات حتى الآن</td></tr>`
+      : results.map((r: any, i: number) => {
+          const pct = r.total ? Math.round((r.score / r.total) * 100) : 0;
+          return `<tr>
+            <td style="padding:8px;border-bottom:1px solid #eee">${i + 1}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee">${r.content?.title || "امتحان"}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee">${r.score} / ${r.total} (${pct}%)</td>
+            <td style="padding:8px;border-bottom:1px solid #eee">${new Date(r.created_at).toLocaleDateString("ar-EG")}</td>
+          </tr>`;
+        }).join("");
 
-    doc.setTextColor(0); doc.setFontSize(13);
-    doc.text("Performance Summary", 20, 82);
-    doc.setFontSize(11); doc.setTextColor(60);
-    doc.text(`Exams taken: ${totalExams}`, 20, 92);
-    doc.text(`Correct answers: ${totalCorrect} / ${totalQuestions}`, 20, 100);
-    doc.text(`Wrong answers: ${totalWrong}`, 20, 108);
-    doc.text(`Average score: ${avgPct}%`, 20, 116);
-    doc.text(`Level: ${levelLabel.replace(/[^\x00-\x7F]/g, "").trim() || avgPct + "%"}`, 20, 124);
+    const html = `
+      <div style="border-bottom:3px solid #6366f1;padding-bottom:14px;margin-bottom:18px">
+        <div style="font-size:28px;font-weight:900;color:#6366f1">📊 تقرير الطالب الشامل</div>
+        <div style="font-size:13px;color:#666;margin-top:4px">صادر من منصة ROOTIX — ${new Date().toLocaleString("ar-EG")}</div>
+      </div>
 
-    doc.line(20, 130, 190, 130);
-    doc.setTextColor(0); doc.setFontSize(13);
-    doc.text("Exam History", 20, 140);
-    doc.setFontSize(10); doc.setTextColor(60);
-    let y = 150;
-    results.forEach((r, i) => {
-      if (y > 270) { doc.addPage(); y = 20; }
-      const pct = r.total ? Math.round((r.score / r.total) * 100) : 0;
-      doc.text(`${i + 1}. Score ${r.score}/${r.total} (${pct}%) - ${new Date(r.created_at).toLocaleDateString("en-US")}`, 20, y);
-      y += 7;
-    });
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:18px">
+        <div style="font-size:20px;font-weight:800;margin-bottom:10px;color:#0f172a">بيانات الطالب</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:15px">
+          <div><b>الاسم:</b> ${student.full_name}</div>
+          <div><b>رقم التليفون:</b> ${student.phone}</div>
+          <div><b>الصف الدراسي:</b> ${student.grade_level}</div>
+          <div><b>كود الدخول:</b> ${student.access_code}</div>
+          <div><b>تاريخ الانضمام:</b> ${new Date(student.created_at).toLocaleDateString("ar-EG")}</div>
+          <div><b>عدد النقاط:</b> ${student.points || 0} نقطة</div>
+          ${student.lesson_time ? `<div><b>معاد الحصة:</b> ${student.lesson_time}</div>` : ""}
+          ${Array.isArray(student.schedule_days) && student.schedule_days.length ? `<div><b>أيام الحصة:</b> ${student.schedule_days.join("، ")}</div>` : ""}
+        </div>
+      </div>
 
-    doc.save(`student-report-${student.full_name.replace(/\s+/g, "-")}.pdf`);
+      <div style="background:#eef2ff;border:2px solid #6366f1;border-radius:14px;padding:18px;margin-bottom:18px;text-align:center">
+        <div style="font-size:14px;color:#555;margin-bottom:6px">المستوى الدراسي العام</div>
+        <div style="font-size:34px;font-weight:900;color:#4f46e5">${levelLabel}</div>
+        <div style="font-size:18px;color:#444;margin-top:4px">متوسط الدرجات: <b>${avgPct}%</b></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:12px;color:#777">امتحانات</div>
+          <div style="font-size:24px;font-weight:900">${totalExams}</div>
+        </div>
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:12px;color:#16a34a">إجابات صحيحة</div>
+          <div style="font-size:24px;font-weight:900;color:#16a34a">${totalCorrect}</div>
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:12px;color:#dc2626">إجابات خاطئة</div>
+          <div style="font-size:24px;font-weight:900;color:#dc2626">${totalWrong}</div>
+        </div>
+        <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:12px;color:#2563eb">إجمالي الأسئلة</div>
+          <div style="font-size:24px;font-weight:900;color:#2563eb">${totalQuestions}</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <div style="font-size:18px;font-weight:800;margin-bottom:8px">📝 سجل الامتحانات</div>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+          <thead>
+            <tr style="background:#f1f5f9">
+              <th style="padding:10px;text-align:right">#</th>
+              <th style="padding:10px;text-align:right">الامتحان</th>
+              <th style="padding:10px;text-align:right">الدرجة</th>
+              <th style="padding:10px;text-align:right">التاريخ</th>
+            </tr>
+          </thead>
+          <tbody>${examsRows}</tbody>
+        </table>
+      </div>
+
+      <div style="background:#fffbeb;border:2px solid #fbbf24;border-radius:14px;padding:18px">
+        <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:#b45309">📌 جملة لولي الأمر / المدرس</div>
+        <div style="font-size:15px;line-height:1.9;color:#333">${advice}</div>
+      </div>
+
+      <div style="margin-top:24px;text-align:center;font-size:11px;color:#999">
+        تم توليد هذا التقرير تلقائياً عبر منصة ROOTIX — جميع الحقوق محفوظة © ${new Date().getFullYear()}
+      </div>
+    `;
+
+    await renderArabicPdf(html, `تقرير-${student.full_name}.pdf`);
     toast.success("تم تحميل التقرير");
   };
 
