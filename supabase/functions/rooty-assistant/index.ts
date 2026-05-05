@@ -152,13 +152,16 @@ Deno.serve(async (req) => {
       .eq("id", platform_id)
       .maybeSingle();
 
+    const allowedGrades: string[] = Array.isArray(platform?.grade_levels) ? platform!.grade_levels as string[] : [];
+    const subjectName = platform?.subject || "—";
+
     const contextMsg = `معلومات المنصة:
-- المادة: ${platform?.subject || "—"}
+- المادة: ${subjectName}   ← ⛔ كل المحتوى لازم يكون في هذه المادة فقط
 - المرحلة: ${platform?.stage || "—"}
-- الصفوف: ${JSON.stringify(platform?.grade_levels || [])}
+- الصفوف المتاحة: ${JSON.stringify(allowedGrades)}   ← ⛔ ممنوع إضافة محتوى لصف خارج هذه القائمة
 - اسم المنصة: ${platform?.config?.platform_name || "—"}
 
-كل أعمالك (إضافة محتوى/إصلاح/حذف) غير محدودة.`;
+كل أعمالك (إضافة محتوى/إصلاح/حذف) غير محدودة، لكن داخل نطاق المادة والصفوف فقط.`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
     const body = {
