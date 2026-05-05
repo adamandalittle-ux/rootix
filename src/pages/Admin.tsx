@@ -942,3 +942,166 @@ function StudentsListModal({ platform, students, onClose }: { platform: Platform
     </div>
   );
 }
+
+function CompanyReportModal({ platforms, studentCounts, paymentsByPlatform, stats, globalStats, onClose }: any) {
+  const totalPlatforms = platforms.filter((p: any) => !p.deleted_at).length;
+  const activePlatforms = platforms.filter((p: any) => (p.status === "active" || p.status === "approved") && !p.deleted_at).length;
+  const paidPlatforms = platforms.filter((p: any) => p.payment_status === "paid" && !p.deleted_at).length;
+  const unpaidActive = platforms.filter((p: any) => (p.status === "active" || p.status === "approved") && p.payment_status !== "paid" && !p.deleted_at).length;
+  const pendingCount = platforms.filter((p: any) => p.status === "pending").length;
+  const pausedCount = platforms.filter((p: any) => p.status === "paused").length;
+  const deletedCount = platforms.filter((p: any) => p.deleted_at || p.status === "deleted").length;
+  const proCount = platforms.filter((p: any) => p.template_tier === "pro" && !p.deleted_at).length;
+  const normalCount = platforms.filter((p: any) => p.template_tier !== "pro" && !p.deleted_at).length;
+
+  // Subjects breakdown
+  const subjectsMap: Record<string, number> = {};
+  platforms.filter((p: any) => !p.deleted_at).forEach((p: any) => {
+    const s = p.subject || "غير محدد";
+    subjectsMap[s] = (subjectsMap[s] || 0) + 1;
+  });
+  const subjects = Object.entries(subjectsMap).sort((a, b) => b[1] - a[1]);
+
+  // Top revenue platforms
+  const topRevenue = platforms
+    .filter((p: any) => !p.deleted_at)
+    .map((p: any) => ({
+      ...p,
+      _rev: (paymentsByPlatform[p.id] || []).reduce((s: number, x: any) => s + (x.amount || 0), 0),
+      _months: (paymentsByPlatform[p.id] || []).length,
+      _students: studentCounts[p.id] || 0,
+    }))
+    .sort((a: any, b: any) => b._rev - a._rev)
+    .slice(0, 10);
+
+  const paidRatio = activePlatforms > 0 ? Math.round((paidPlatforms / activePlatforms) * 100) : 0;
+  const avgRevenuePerPlatform = activePlatforms > 0 ? Math.round(globalStats.lifetimeRevenue / activePlatforms) : 0;
+  const avgStudentsPerPlatform = activePlatforms > 0 ? Math.round(globalStats.totalStudents / activePlatforms) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl max-w-5xl w-full max-h-[92vh] overflow-auto" onClick={(e) => e.stopPropagation()} dir="rtl">
+        <div className="sticky top-0 bg-card border-b border-border p-5 flex items-center justify-between z-10">
+          <div>
+            <h2 className="font-black text-2xl flex items-center gap-2">📊 تقرير شامل عن ROOTIX</h2>
+            <p className="text-xs text-muted-foreground mt-1">آخر تحديث: {new Date().toLocaleString("ar-EG")}</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-2"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Hero KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <KpiCard color="primary" label="إجمالي الإيراد" value={`${globalStats.lifetimeRevenue.toLocaleString("ar-EG")} ج`} sub={`من بداية ROOTIX`} />
+            <KpiCard color="green" label="الإيراد الشهري الحالي" value={`${stats.revenue.toLocaleString("ar-EG")} ج`} sub={`من ${paidPlatforms} منصة دفعت`} />
+            <KpiCard color="blue" label="إجمالي الطلاب" value={globalStats.totalStudents.toLocaleString("ar-EG")} sub={`+${globalStats.todayStudents} النهاردة`} />
+            <KpiCard color="purple" label="منصات نشطة" value={`${activePlatforms}`} sub={`من إجمالي ${totalPlatforms}`} />
+          </div>
+
+          {/* Platforms breakdown */}
+          <div className="rounded-2xl border border-border bg-muted/20 p-5">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">🏗️ تفاصيل المنصات</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <Stat label="إجمالي المنصات" v={totalPlatforms} />
+              <Stat label="نشطة وشغالة" v={activePlatforms} green />
+              <Stat label="طلبات معلقة" v={pendingCount} yellow />
+              <Stat label="موقوفة" v={pausedCount} />
+              <Stat label="محذوفة/مؤرشفة" v={deletedCount} red />
+              <Stat label="باقة Pro" v={proCount} />
+              <Stat label="باقة عادية" v={normalCount} />
+              <Stat label="غير مدفوعة الآن" v={unpaidActive} red />
+            </div>
+          </div>
+
+          {/* Financials */}
+          <div className="rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-500/5 to-transparent p-5">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">💰 التفاصيل المالية</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+              <Stat label="إجمالي الإيرادات (Lifetime)" v={`${globalStats.lifetimeRevenue.toLocaleString("ar-EG")} ج`} />
+              <Stat label="الإيراد الشهري المتوقع" v={`${stats.revenue.toLocaleString("ar-EG")} ج`} green />
+              <Stat label="الخسائر (محذوفة)" v={`${stats.losses.toLocaleString("ar-EG")} ج`} red />
+              <Stat label="نسبة الدفع" v={`${paidRatio}%`} />
+              <Stat label="متوسط إيراد المنصة" v={`${avgRevenuePerPlatform.toLocaleString("ar-EG")} ج`} />
+              <Stat label="متوسط الطلاب لكل منصة" v={`${avgStudentsPerPlatform}`} />
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="rounded-2xl border border-border bg-muted/20 p-5">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">📚 المحتوى والتفاعل</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <Stat label="إجمالي المحتوى" v={globalStats.totalContent} />
+              <Stat label="إجمالي الامتحانات المحلولة" v={globalStats.totalExams} />
+              <Stat label="متوسط درجة الامتحان" v={`${globalStats.avgScore}%`} green />
+              <Stat label="طلاب جدد الأسبوع" v={globalStats.weekStudents} />
+            </div>
+          </div>
+
+          {/* Subjects */}
+          {subjects.length > 0 && (
+            <div className="rounded-2xl border border-border bg-muted/20 p-5">
+              <h3 className="font-bold text-lg mb-4">📖 المنصات حسب المادة</h3>
+              <div className="flex flex-wrap gap-2">
+                {subjects.map(([s, n]) => (
+                  <span key={s} className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold">{s} <span className="text-xs opacity-70">({n})</span></span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top revenue */}
+          {topRevenue.length > 0 && (
+            <div className="rounded-2xl border border-border bg-muted/20 p-5">
+              <h3 className="font-bold text-lg mb-4">🏆 أعلى المنصات بالإيراد</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-muted-foreground border-b border-border">
+                    <tr><th className="text-start p-2">#</th><th className="text-start p-2">المنصة</th><th className="text-start p-2">المدرس</th><th className="text-start p-2">الطلاب</th><th className="text-start p-2">عدد الشهور</th><th className="text-start p-2">الإيراد</th></tr>
+                  </thead>
+                  <tbody>
+                    {topRevenue.map((p: any, i: number) => (
+                      <tr key={p.id} className="border-b border-border/40">
+                        <td className="p-2 text-muted-foreground">{i + 1}</td>
+                        <td className="p-2 font-medium">{p.config?.platform_name || "—"}</td>
+                        <td className="p-2">{p.teacher_name}</td>
+                        <td className="p-2">{p._students}</td>
+                        <td className="p-2">{p._months}</td>
+                        <td className="p-2 font-bold text-green-500">{p._rev.toLocaleString("ar-EG")} ج</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ color, label, value, sub }: any) {
+  const colors: Record<string, string> = {
+    primary: "from-primary/15 to-primary/5 border-primary/30 text-primary",
+    green: "from-green-500/15 to-green-500/5 border-green-500/30 text-green-500",
+    blue: "from-blue-500/15 to-blue-500/5 border-blue-500/30 text-blue-500",
+    purple: "from-purple-500/15 to-purple-500/5 border-purple-500/30 text-purple-500",
+  };
+  return (
+    <div className={`rounded-2xl border bg-gradient-to-br p-5 ${colors[color]}`}>
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
+      <div className="text-3xl font-black">{value}</div>
+      <div className="text-xs text-muted-foreground mt-1">{sub}</div>
+    </div>
+  );
+}
+
+function Stat({ label, v, green, red, yellow }: any) {
+  const cls = green ? "text-green-500" : red ? "text-destructive" : yellow ? "text-yellow-500" : "text-foreground";
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`text-xl font-bold ${cls}`}>{v}</div>
+    </div>
+  );
+}
