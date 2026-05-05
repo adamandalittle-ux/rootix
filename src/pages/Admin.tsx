@@ -284,67 +284,7 @@ export default function Admin() {
     setStudentsModalData(data || []);
   };
 
-  const generateCompanyReport = () => {
-    const doc = new jsPDF();
-    const totalPlatforms = platforms.filter(p => !p.deleted_at).length;
-    const activePlatforms = platforms.filter(p => (p.status === "active" || p.status === "approved") && !p.deleted_at).length;
-    const paidPlatforms = platforms.filter(p => p.payment_status === "paid" && !p.deleted_at).length;
-    const deletedPlatforms = platforms.filter(p => p.deleted_at || p.status === "deleted").length;
-    const totalStudents = globalStats.totalStudents;
-    const lifetimeRevenue = globalStats.lifetimeRevenue;
-    const monthlyRevenue = stats.revenue;
-    const losses = stats.losses;
-
-    doc.setFontSize(20);
-    doc.text("ROOTIX - Company Report", 105, 20, { align: "center" });
-    doc.setFontSize(10); doc.setTextColor(120);
-    doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 105, 28, { align: "center" });
-    doc.setDrawColor(180); doc.line(20, 34, 190, 34);
-
-    doc.setFontSize(14); doc.setTextColor(0);
-    doc.text("Platforms Overview", 20, 45);
-    doc.setFontSize(11); doc.setTextColor(60);
-    let y = 55;
-    const lines = [
-      `Total platforms (active arch): ${totalPlatforms}`,
-      `Active & running: ${activePlatforms}`,
-      `Paid (this cycle): ${paidPlatforms}`,
-      `Deleted/archived: ${deletedPlatforms}`,
-      `Teachers still with us: ${activePlatforms}`,
-      ``,
-      `Students (all platforms): ${totalStudents}`,
-      `New students today: ${globalStats.todayStudents}`,
-      `New students this week: ${globalStats.weekStudents}`,
-      ``,
-      `Monthly revenue: ${monthlyRevenue.toLocaleString("en-US")} EGP`,
-      `Lifetime revenue: ${lifetimeRevenue.toLocaleString("en-US")} EGP`,
-      `Estimated losses (deleted): ${losses.toLocaleString("en-US")} EGP`,
-      ``,
-      `Avg exam score: ${globalStats.avgScore}%`,
-      `Total content items: ${globalStats.totalContent}`,
-      `Total exams solved: ${globalStats.totalExams}`,
-    ];
-    lines.forEach(l => { doc.text(l, 20, y); y += 7; });
-
-    y += 4;
-    doc.setDrawColor(180); doc.line(20, y, 190, y); y += 10;
-    doc.setFontSize(14); doc.setTextColor(0);
-    doc.text("Top Platforms by Students", 20, y); y += 8;
-    doc.setFontSize(10); doc.setTextColor(60);
-    [...platforms]
-      .filter(p => !p.deleted_at)
-      .map(p => ({ ...p, _s: studentCounts[p.id] || 0 }))
-      .sort((a, b) => b._s - a._s)
-      .slice(0, 10)
-      .forEach((p, i) => {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(`${i + 1}. ${(p.config?.platform_name || p.teacher_name).slice(0, 40)} - ${p._s} students - ${p.payment_status}`, 20, y);
-        y += 6;
-      });
-
-    doc.save(`rootix-company-report-${new Date().toISOString().slice(0, 10)}.pdf`);
-    toast.success("تم تحميل تقرير الشركة 📊");
-  };
+  const openCompanyReport = () => setCompanyReportOpen(true);
 
 
   const changePackage = async (p: Platform) => {
