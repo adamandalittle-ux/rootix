@@ -682,10 +682,25 @@ function ExamCard({ item, student, primary, platformId }: any) {
   const [showExam, setShowExam] = useState(false);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [submitted, setSubmitted] = useState<{ score: number; total: number } | null>(null);
+  const [previousAttempt, setPreviousAttempt] = useState<{ score: number; total: number } | null>(null);
 
   const questions = item.data?.questions || [];
 
+  // Check if student already attempted
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("exam_results")
+        .select("score,total")
+        .eq("student_id", student.id)
+        .eq("exam_id", item.id)
+        .maybeSingle();
+      if (data) setPreviousAttempt(data as any);
+    })();
+  }, [item.id, student.id]);
+
   const submit = async () => {
+    if (previousAttempt) return;
     let score = 0;
     questions.forEach((q: any, i: number) => {
       if (answers[i] === q.correct) score++;
@@ -698,24 +713,36 @@ function ExamCard({ item, student, primary, platformId }: any) {
       total: questions.length,
       answers: answers as any,
     });
-    // Award points: 1 per correct answer
     if (score > 0) {
       await supabase.from("students").update({ points: (student.points || 0) + score }).eq("id", student.id);
-      // Update local cache
       const updated = { ...student, points: (student.points || 0) + score };
       const slugMatch = window.location.pathname.split("/").pop();
       localStorage.setItem(`rootix_student_${slugMatch}`, JSON.stringify(updated));
     }
     setSubmitted({ score, total: questions.length });
+    setPreviousAttempt({ score, total: questions.length });
     toast.success(`درجتك: ${score}/${questions.length} • +${score} نقطة 🌟`);
   };
 
   if (!showExam) {
+    const locked = !!previousAttempt;
     return (
-      <button onClick={() => setShowExam(true)} className="rounded-xl border border-border bg-card p-4 text-start hover:border-primary transition-colors">
-        <ListChecks className="w-8 h-8 mb-2" style={{ color: primary }} />
+      <button
+        onClick={() => !locked && setShowExam(true)}
+        disabled={locked}
+        className="rounded-xl border bg-card p-4 text-start hover:border-primary transition-colors disabled:cursor-not-allowed relative overflow-hidden"
+        style={{ borderColor: locked ? "#16a34a55" : undefined, background: locked ? "#16a34a08" : undefined }}
+      >
+        <ListChecks className="w-8 h-8 mb-2" style={{ color: locked ? "#16a34a" : primary }} />
         <div className="font-medium text-sm">{item.title}</div>
-        <div className="text-xs text-muted-foreground mt-1">{questions.length} سؤال • +{questions.length} نقطة محتملة</div>
+        {locked ? (
+          <div className="text-xs mt-1.5 font-bold" style={{ color: "#16a34a" }}>
+            ✅ تم الحل — درجتك: {previousAttempt.score}/{previousAttempt.total}
+            <div className="text-[10px] text-muted-foreground font-normal mt-0.5">مينفعش تحل تاني</div>
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground mt-1">{questions.length} سؤال • +{questions.length} نقطة محتملة</div>
+        )}
       </button>
     );
   }
