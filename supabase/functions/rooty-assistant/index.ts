@@ -249,9 +249,12 @@ Deno.serve(async (req) => {
           data = { url: args.url };
         }
 
+        // Exams/questions added by Rooty start as DRAFT (published=false) → teacher must approve
+        const isReviewable = kind === "exam" || kind === "question";
         const { error: cErr } = await sb.from("content").insert({
           platform_id, kind, title, grade_level, lesson: args.lesson || null, data,
-        });
+          published: !isReviewable,
+        } as any);
         if (cErr) {
           executedActions.push({ name, ok: false, error: cErr.message });
           continue;
