@@ -583,7 +583,7 @@ function StudentsList({ students, platform, refresh }: any) {
   );
 }
 
-function StudentReportModal({ student, onClose }: { student: any; onClose: () => void }) {
+function StudentReportModal({ student, platform, onClose }: { student: any; platform?: any; onClose: () => void }) {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
