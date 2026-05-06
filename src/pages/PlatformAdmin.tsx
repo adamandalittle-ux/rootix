@@ -125,6 +125,20 @@ export default function PlatformAdmin() {
       </nav>
 
       <div className="container mx-auto px-4 py-6">
+        {/* 🟡 Admin warning to teacher */}
+        {platform.admin_warning && (
+          <div className="mb-4 rounded-2xl border-2 border-yellow-500/60 bg-gradient-to-l from-yellow-500/20 via-yellow-500/10 to-yellow-500/5 p-4 flex items-center gap-3 shadow-lg shadow-yellow-500/10 animate-in fade-in slide-in-from-top-2">
+            <div className="w-12 h-12 rounded-2xl bg-yellow-500 flex items-center justify-center shrink-0 animate-pulse">
+              <AlertTriangle className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="text-xs font-black text-yellow-700 dark:text-yellow-400 mb-1 tracking-wider">⚡ تنبيه عاجل من إدارة ROOTIX</div>
+              <div className="text-sm font-semibold leading-relaxed">{platform.admin_warning}</div>
+              {platform.admin_warning_at && <div className="text-[10px] text-muted-foreground mt-1">{new Date(platform.admin_warning_at).toLocaleString("ar-EG")}</div>}
+            </div>
+          </div>
+        )}
+
         {overCapacityBy > 0 && (
           <div className="mb-4 rounded-2xl border-2 border-orange-500/40 bg-gradient-to-l from-orange-500/15 to-orange-500/5 p-4 flex items-center gap-3">
             <TrendingUp className="w-6 h-6 text-orange-500 shrink-0" />
