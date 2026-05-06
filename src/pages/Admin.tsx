@@ -287,6 +287,26 @@ export default function Admin() {
 
   const openCompanyReport = () => setCompanyReportOpen(true);
 
+  const resetAllRevenue = async () => {
+    if (!confirm("⚠️ هتمسح كل الدفعات + ترجع كل المنصات لـ غير مدفوع. متأكد؟")) return;
+    if (!confirm("متأكد فعلاً؟ مفيش رجوع.")) return;
+    await supabase.from("platform_payments").delete().gte("amount", -1);
+    await supabase.from("platforms").update({ payment_status: "unpaid" }).gte("package_price", 0);
+    toast.success("✅ تم تصفير كل الإيرادات");
+    load();
+  };
+
+  const saveWarning = async (id: string, msg: string) => {
+    const trimmed = msg.trim();
+    await supabase.from("platforms").update({
+      admin_warning: trimmed || null,
+      admin_warning_at: trimmed ? new Date().toISOString() : null,
+    } as any).eq("id", id);
+    toast.success(trimmed ? "✅ تم إرسال التحذير للمدرس" : "تم مسح التحذير");
+    setWarningModalFor(null);
+    load();
+  };
+
 
   const changePackage = async (p: Platform) => {
     const newCount = prompt(`غير عدد الطلاب للباقة (الحالي: ${p.package_students}):`, String(p.package_students));
