@@ -794,6 +794,46 @@ export default function Admin() {
           onClose={() => setCompanyReportOpen(false)}
         />
       )}
+      {warningModalFor && (
+        <WarningModal
+          platform={warningModalFor}
+          onClose={() => setWarningModalFor(null)}
+          onSave={saveWarning}
+        />
+      )}
+    </div>
+  );
+}
+
+function WarningModal({ platform, onClose, onSave }: { platform: any; onClose: () => void; onSave: (id: string, msg: string) => void }) {
+  const [msg, setMsg] = useState(platform.admin_warning || "");
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border-2 border-yellow-500/50 rounded-2xl max-w-lg w-full" onClick={(e) => e.stopPropagation()} dir="rtl">
+        <div className="border-b border-border p-5 flex items-center justify-between">
+          <h2 className="font-bold text-lg flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500" /> إرسال تحذير لـ {platform.teacher_name}
+          </h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-muted-foreground">هتظهر في لوحة المدرس بس (مش هتظهر للطلاب) كبانر أصفر بارز.</p>
+          <textarea
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            placeholder="اكتب رسالتك للمدرس... مثال: برجاء سداد رسوم الشهر الجاي قبل يوم 10."
+            className="w-full min-h-[140px] rounded-lg border border-input bg-background p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+          />
+          <div className="flex gap-2">
+            <Button onClick={() => onSave(platform.id, msg)} className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white">
+              {msg.trim() ? "إرسال التحذير" : "مسح التحذير الحالي"}
+            </Button>
+            {platform.admin_warning && (
+              <Button variant="outline" onClick={() => onSave(platform.id, "")}>إلغاء التحذير</Button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
