@@ -739,6 +739,9 @@ export default function Admin() {
                     <Button size="sm" variant="outline" onClick={() => changePackage(p)}>
                       تغيير الباقة
                     </Button>
+                    <Button size="sm" variant="outline" onClick={() => setWarningModalFor(p)} className={(p as any).admin_warning ? "border-yellow-500 text-yellow-600 bg-yellow-500/10" : "border-yellow-500/40 text-yellow-600"}>
+                      <AlertTriangle className="w-4 h-4 ml-1" />{(p as any).admin_warning ? "تعديل التحذير" : "إرسال تحذير"}
+                    </Button>
                     {p.dashboard_password && (
                       <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(p.dashboard_password!); toast.success("نسخ كلمة سر المدرس: " + p.dashboard_password); }}>
                         🔑 كلمة السر
