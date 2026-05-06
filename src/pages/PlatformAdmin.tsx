@@ -179,7 +179,7 @@ export default function PlatformAdmin() {
         </div>
 
         {tab === "content" && <ContentManager platform={platform} items={content} refresh={refreshAll} />}
-        {tab === "students" && <StudentsList students={students} refresh={refreshAll} />}
+        {tab === "students" && <StudentsList students={students} platform={platform} refresh={refreshAll} />}
         {tab === "codes" && <CodesManager platform={platform} codes={codes} refresh={refreshAll} />}
         {tab === "live" && <LiveTab platform={platform} reload={load} />}
         {tab === "settings" && <SettingsTab platform={platform} reload={load} />}
