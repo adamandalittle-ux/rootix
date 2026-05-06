@@ -80,12 +80,14 @@ export type Database = {
         Row: {
           created_at: string
           data: Json
+          duration_seconds: number | null
           file_url: string | null
           grade_level: string
           id: string
           kind: string
           lesson: string | null
           platform_id: string
+          published: boolean
           title: string
           unit: string | null
           video_url: string | null
@@ -93,12 +95,14 @@ export type Database = {
         Insert: {
           created_at?: string
           data?: Json
+          duration_seconds?: number | null
           file_url?: string | null
           grade_level: string
           id?: string
           kind: string
           lesson?: string | null
           platform_id: string
+          published?: boolean
           title: string
           unit?: string | null
           video_url?: string | null
@@ -106,12 +110,14 @@ export type Database = {
         Update: {
           created_at?: string
           data?: Json
+          duration_seconds?: number | null
           file_url?: string | null
           grade_level?: string
           id?: string
           kind?: string
           lesson?: string | null
           platform_id?: string
+          published?: boolean
           title?: string
           unit?: string | null
           video_url?: string | null
@@ -222,6 +228,8 @@ export type Database = {
       platforms: {
         Row: {
           admin_notes: string | null
+          admin_warning: string | null
+          admin_warning_at: string | null
           approved_at: string | null
           code: string
           config: Json
@@ -256,6 +264,8 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          admin_warning?: string | null
+          admin_warning_at?: string | null
           approved_at?: string | null
           code: string
           config?: Json
@@ -290,6 +300,8 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          admin_warning?: string | null
+          admin_warning_at?: string | null
           approved_at?: string | null
           code?: string
           config?: Json

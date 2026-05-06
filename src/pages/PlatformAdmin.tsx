@@ -125,6 +125,20 @@ export default function PlatformAdmin() {
       </nav>
 
       <div className="container mx-auto px-4 py-6">
+        {/* 🟡 Admin warning to teacher */}
+        {platform.admin_warning && (
+          <div className="mb-4 rounded-2xl border-2 border-yellow-500/60 bg-gradient-to-l from-yellow-500/20 via-yellow-500/10 to-yellow-500/5 p-4 flex items-center gap-3 shadow-lg shadow-yellow-500/10 animate-in fade-in slide-in-from-top-2">
+            <div className="w-12 h-12 rounded-2xl bg-yellow-500 flex items-center justify-center shrink-0 animate-pulse">
+              <AlertTriangle className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="text-xs font-black text-yellow-700 dark:text-yellow-400 mb-1 tracking-wider">⚡ تنبيه عاجل من إدارة ROOTIX</div>
+              <div className="text-sm font-semibold leading-relaxed">{platform.admin_warning}</div>
+              {platform.admin_warning_at && <div className="text-[10px] text-muted-foreground mt-1">{new Date(platform.admin_warning_at).toLocaleString("ar-EG")}</div>}
+            </div>
+          </div>
+        )}
+
         {overCapacityBy > 0 && (
           <div className="mb-4 rounded-2xl border-2 border-orange-500/40 bg-gradient-to-l from-orange-500/15 to-orange-500/5 p-4 flex items-center gap-3">
             <TrendingUp className="w-6 h-6 text-orange-500 shrink-0" />
@@ -165,7 +179,7 @@ export default function PlatformAdmin() {
         </div>
 
         {tab === "content" && <ContentManager platform={platform} items={content} refresh={refreshAll} />}
-        {tab === "students" && <StudentsList students={students} refresh={refreshAll} />}
+        {tab === "students" && <StudentsList students={students} platform={platform} refresh={refreshAll} />}
         {tab === "codes" && <CodesManager platform={platform} codes={codes} refresh={refreshAll} />}
         {tab === "live" && <LiveTab platform={platform} reload={load} />}
         {tab === "settings" && <SettingsTab platform={platform} reload={load} />}
@@ -409,35 +423,167 @@ function ContentManager({ platform, items, refresh }: any) {
   );
 }
 
-function StudentsList({ students, refresh }: any) {
+function StudentsList({ students, platform, refresh }: any) {
   const [reportFor, setReportFor] = useState<any>(null);
+  const [bulkBusy, setBulkBusy] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string>("");
+
   const remove = async (id: string) => {
+    if (!confirm("احذف الطالب ده؟")) return;
     await supabase.from("students").delete().eq("id", id);
     toast.success("تم الحذف");
     refresh();
   };
-  if (students.length === 0) return <div className="text-center py-10 text-muted-foreground">لا يوجد طلاب بعد</div>;
+
+  const grades = (platform.grade_levels as string[]) || [];
+  const byGrade = (g: string) => students.filter((s: any) => s.grade_level === g);
+  const visible = filter ? byGrade(filter) : students;
+
+  const downloadGradeReport = async (grade: string) => {
+    const list = byGrade(grade);
+    if (list.length === 0) return toast.error(`مفيش طلاب في ${grade}`);
+    setBulkBusy(grade);
+    try {
+      const ids = list.map((s: any) => s.id);
+      const { data: allResults } = await supabase
+        .from("exam_results")
+        .select("*, content:exam_id(title,kind)")
+        .in("student_id", ids);
+      const byStudent: Record<string, any[]> = {};
+      (allResults || []).forEach((r: any) => {
+        (byStudent[r.student_id] = byStudent[r.student_id] || []).push(r);
+      });
+
+      const platformName = platform.config?.platform_name || `منصة ${platform.teacher_name}`;
+      const subjectName = platform.subject || "";
+
+      const coverHtml = `
+        <div style="text-align:center;padding:60px 20px">
+          <div style="font-size:13px;color:#888;letter-spacing:6px;margin-bottom:8px">ROOTIX REPORTS</div>
+          <div style="font-size:34px;font-weight:900;color:#4f46e5;margin-bottom:6px">${platformName}</div>
+          <div style="font-size:18px;color:#444;margin-bottom:4px">أ/ ${platform.teacher_name} • ${subjectName}</div>
+          <div style="font-size:22px;font-weight:800;color:#0f172a;margin:30px 0 10px">📚 تقرير صف ${grade}</div>
+          <div style="font-size:15px;color:#666">عدد الطلاب: ${list.length}</div>
+          <div style="font-size:13px;color:#999;margin-top:24px">تم التوليد: ${new Date().toLocaleString("ar-EG")}</div>
+        </div>
+      `;
+
+      const studentPages = list.map((s: any, idx: number) => {
+        const rs = byStudent[s.id] || [];
+        const totalExams = rs.length;
+        const totalCorrect = rs.reduce((x: number, r: any) => x + (r.score || 0), 0);
+        const totalQuestions = rs.reduce((x: number, r: any) => x + (r.total || 0), 0);
+        const totalWrong = totalQuestions - totalCorrect;
+        const avgPct = totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+        let level = "محتاج دعم", advice = "الطالب يحتاج لمتابعة دقيقة وحصص دعم.";
+        if (avgPct >= 85) { level = "ممتاز ⭐"; advice = "الطالب متفوق جداً، استمر في تحفيزه."; }
+        else if (avgPct >= 70) { level = "جيد جداً"; advice = "مستوى جيد، يحتاج تدريب على المسائل الصعبة."; }
+        else if (avgPct >= 50) { level = "متوسط"; advice = "يحتاج مراجعة منتظمة وحل أسئلة إضافية."; }
+        else if (avgPct >= 30) { level = "ضعيف"; advice = "محتاج متابعة من ولي الأمر وحصص دعم."; }
+        const examsRows = rs.length === 0
+          ? `<tr><td colspan="3" style="text-align:center;padding:10px;color:#888">لم يحل امتحانات</td></tr>`
+          : rs.map((r: any, i: number) => {
+              const pct = r.total ? Math.round((r.score / r.total) * 100) : 0;
+              return `<tr><td style="padding:6px;border-bottom:1px solid #eee">${i + 1}. ${r.content?.title || "امتحان"}</td><td style="padding:6px;border-bottom:1px solid #eee">${r.score}/${r.total} (${pct}%)</td><td style="padding:6px;border-bottom:1px solid #eee;font-size:11px;color:#777">${new Date(r.created_at).toLocaleDateString("ar-EG")}</td></tr>`;
+            }).join("");
+        return `
+          <div style="page-break-before:${idx === 0 ? "auto" : "always"};padding:10px 0">
+            <div style="border-bottom:3px solid #6366f1;padding-bottom:10px;margin-bottom:14px">
+              <div style="font-size:11px;color:#888">${platformName} — ${subjectName}</div>
+              <div style="font-size:24px;font-weight:900;color:#4f46e5">📊 ${s.full_name}</div>
+              <div style="font-size:12px;color:#666;margin-top:2px">${s.grade_level} • ${s.phone} • كود: ${s.access_code}</div>
+            </div>
+            <div style="background:#eef2ff;border:2px solid #6366f1;border-radius:12px;padding:14px;margin-bottom:12px;text-align:center">
+              <div style="font-size:12px;color:#555">المستوى الدراسي</div>
+              <div style="font-size:26px;font-weight:900;color:#4f46e5">${level}</div>
+              <div style="font-size:14px;color:#444">متوسط: ${avgPct}%</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:#777">امتحانات</div><div style="font-size:20px;font-weight:900">${totalExams}</div></div>
+              <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:#16a34a">صح</div><div style="font-size:20px;font-weight:900;color:#16a34a">${totalCorrect}</div></div>
+              <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:#dc2626">غلط</div><div style="font-size:20px;font-weight:900;color:#dc2626">${totalWrong}</div></div>
+              <div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:#b45309">نقاط</div><div style="font-size:20px;font-weight:900;color:#b45309">${s.points || 0}</div></div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:12px;font-size:13px"><thead><tr style="background:#f1f5f9"><th style="padding:7px;text-align:right">الامتحان</th><th style="padding:7px;text-align:right">الدرجة</th><th style="padding:7px;text-align:right">التاريخ</th></tr></thead><tbody>${examsRows}</tbody></table>
+            <div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:10px;padding:12px;font-size:13px;color:#333"><b style="color:#b45309">📌 توصية:</b> ${advice}</div>
+            <div style="text-align:center;font-size:10px;color:#aaa;margin-top:10px">صفحة الطالب ${idx + 1} من ${list.length} • ROOTIX</div>
+          </div>
+        `;
+      }).join("");
+
+      await renderArabicPdf(coverHtml + studentPages, `تقارير-${grade}-${platform.slug}.pdf`);
+      toast.success(`✅ تم تحميل تقرير ${list.length} طالب`);
+    } catch (e: any) {
+      toast.error("فشل: " + e.message);
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
   return (
     <>
-      <div className="space-y-2">
-        {students.map((s: any) => (
-          <div key={s.id} className="rounded-lg border border-border bg-card p-3 flex items-center justify-between hover:border-primary/50 transition-colors">
-            <button onClick={() => setReportFor(s)} className="flex-1 text-start">
-              <div className="font-medium text-sm hover:text-primary">{s.full_name}</div>
-              <div className="text-xs text-muted-foreground">{s.phone} • {s.grade_level} • كود: {s.access_code}</div>
-            </button>
-            <Button variant="ghost" size="icon" onClick={() => remove(s.id)}>
-              <Trash2 className="w-4 h-4 text-destructive" />
-            </Button>
+      {grades.length > 0 && (
+        <div className="mb-5 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4">
+          <div className="font-bold text-sm mb-3 flex items-center gap-2">
+            <Download className="w-4 h-4 text-primary" /> تقارير جماعية حسب الصف
+            <span className="text-xs text-muted-foreground font-normal">— كل طالب صفحة كاملة في ملف واحد</span>
           </div>
-        ))}
-      </div>
-      {reportFor && <StudentReportModal student={reportFor} onClose={() => setReportFor(null)} />}
+          <div className={`grid gap-2 ${grades.length <= 3 ? "grid-cols-3" : grades.length <= 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3 md:grid-cols-6"}`}>
+            {grades.map((g) => {
+              const count = byGrade(g).length;
+              return (
+                <button
+                  key={g}
+                  onClick={() => downloadGradeReport(g)}
+                  disabled={bulkBusy === g || count === 0}
+                  className="rounded-xl border-2 border-primary/30 bg-card hover:border-primary hover:bg-primary/10 p-3 text-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="text-xs text-muted-foreground mb-1">{g}</div>
+                  <div className="text-2xl font-black text-primary">{count}</div>
+                  <div className="text-[10px] text-muted-foreground mt-1">
+                    {bulkBusy === g ? "⏳ جاري التوليد..." : count === 0 ? "مفيش طلاب" : "📥 حمّل التقارير"}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {grades.length > 1 && (
+        <div className="flex gap-2 mb-3 flex-wrap">
+          <button onClick={() => setFilter("")} className={`text-xs px-3 py-1 rounded-full border ${!filter ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>الكل ({students.length})</button>
+          {grades.map((g) => (
+            <button key={g} onClick={() => setFilter(g)} className={`text-xs px-3 py-1 rounded-full border ${filter === g ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>
+              {g} ({byGrade(g).length})
+            </button>
+          ))}
+        </div>
+      )}
+
+      {visible.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground">لا يوجد طلاب في القسم ده</div>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((s: any) => (
+            <div key={s.id} className="rounded-lg border border-border bg-card p-3 flex items-center justify-between hover:border-primary/50 transition-colors">
+              <button onClick={() => setReportFor(s)} className="flex-1 text-start">
+                <div className="font-medium text-sm hover:text-primary">{s.full_name}</div>
+                <div className="text-xs text-muted-foreground">{s.phone} • {s.grade_level} • كود: {s.access_code} • نقاط: {s.points || 0}</div>
+              </button>
+              <Button variant="ghost" size="icon" onClick={() => remove(s.id)}>
+                <Trash2 className="w-4 h-4 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      {reportFor && <StudentReportModal student={reportFor} platform={platform} onClose={() => setReportFor(null)} />}
     </>
   );
 }
 
-function StudentReportModal({ student, onClose }: { student: any; onClose: () => void }) {
+function StudentReportModal({ student, platform, onClose }: { student: any; platform?: any; onClose: () => void }) {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -57,6 +57,7 @@ export default function Admin() {
   const [studentsModalFor, setStudentsModalFor] = useState<Platform | null>(null);
   const [studentsModalData, setStudentsModalData] = useState<any[]>([]);
   const [companyReportOpen, setCompanyReportOpen] = useState(false);
+  const [warningModalFor, setWarningModalFor] = useState<Platform | null>(null);
 
   useEffect(() => {
     if (localStorage.getItem("rootix_admin") === "1") setLoggedIn(true);
@@ -286,6 +287,26 @@ export default function Admin() {
 
   const openCompanyReport = () => setCompanyReportOpen(true);
 
+  const resetAllRevenue = async () => {
+    if (!confirm("⚠️ هتمسح كل الدفعات + ترجع كل المنصات لـ غير مدفوع. متأكد؟")) return;
+    if (!confirm("متأكد فعلاً؟ مفيش رجوع.")) return;
+    await supabase.from("platform_payments").delete().gte("amount", -1);
+    await supabase.from("platforms").update({ payment_status: "unpaid" }).gte("package_price", 0);
+    toast.success("✅ تم تصفير كل الإيرادات");
+    load();
+  };
+
+  const saveWarning = async (id: string, msg: string) => {
+    const trimmed = msg.trim();
+    await supabase.from("platforms").update({
+      admin_warning: trimmed || null,
+      admin_warning_at: trimmed ? new Date().toISOString() : null,
+    } as any).eq("id", id);
+    toast.success(trimmed ? "✅ تم إرسال التحذير للمدرس" : "تم مسح التحذير");
+    setWarningModalFor(null);
+    load();
+  };
+
 
   const changePackage = async (p: Platform) => {
     const newCount = prompt(`غير عدد الطلاب للباقة (الحالي: ${p.package_students}):`, String(p.package_students));
@@ -419,10 +440,17 @@ export default function Admin() {
             <div className="text-3xl font-black text-blue-500">{globalStats.totalContent.toLocaleString("ar-EG")}</div>
             <div className="text-xs text-muted-foreground mt-1">فيديو + PDF + امتحانات</div>
           </div>
-          <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 to-purple-500/5 p-5">
+          <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 to-purple-500/5 p-5 relative">
             <div className="text-xs text-muted-foreground mb-1">💎 إجمالي الإيرادات (كل الفلوس)</div>
             <div className="text-3xl font-black text-purple-500">{globalStats.lifetimeRevenue.toLocaleString("ar-EG")}<span className="text-base mr-1">ج</span></div>
             <div className="text-xs text-muted-foreground mt-1">من بداية ROOTIX لحد دلوقتي</div>
+            <button
+              onClick={resetAllRevenue}
+              className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded bg-destructive/10 text-destructive hover:bg-destructive/20"
+              title="تصفير كل الإيرادات والدفعات"
+            >
+              🗑️ تصفير
+            </button>
           </div>
         </div>
 
@@ -711,6 +739,9 @@ export default function Admin() {
                     <Button size="sm" variant="outline" onClick={() => changePackage(p)}>
                       تغيير الباقة
                     </Button>
+                    <Button size="sm" variant="outline" onClick={() => setWarningModalFor(p)} className={(p as any).admin_warning ? "border-yellow-500 text-yellow-600 bg-yellow-500/10" : "border-yellow-500/40 text-yellow-600"}>
+                      <AlertTriangle className="w-4 h-4 ml-1" />{(p as any).admin_warning ? "تعديل التحذير" : "إرسال تحذير"}
+                    </Button>
                     {p.dashboard_password && (
                       <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(p.dashboard_password!); toast.success("نسخ كلمة سر المدرس: " + p.dashboard_password); }}>
                         🔑 كلمة السر
@@ -763,6 +794,46 @@ export default function Admin() {
           onClose={() => setCompanyReportOpen(false)}
         />
       )}
+      {warningModalFor && (
+        <WarningModal
+          platform={warningModalFor}
+          onClose={() => setWarningModalFor(null)}
+          onSave={saveWarning}
+        />
+      )}
+    </div>
+  );
+}
+
+function WarningModal({ platform, onClose, onSave }: { platform: any; onClose: () => void; onSave: (id: string, msg: string) => void }) {
+  const [msg, setMsg] = useState(platform.admin_warning || "");
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border-2 border-yellow-500/50 rounded-2xl max-w-lg w-full" onClick={(e) => e.stopPropagation()} dir="rtl">
+        <div className="border-b border-border p-5 flex items-center justify-between">
+          <h2 className="font-bold text-lg flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500" /> إرسال تحذير لـ {platform.teacher_name}
+          </h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-muted-foreground">هتظهر في لوحة المدرس بس (مش هتظهر للطلاب) كبانر أصفر بارز.</p>
+          <textarea
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            placeholder="اكتب رسالتك للمدرس... مثال: برجاء سداد رسوم الشهر الجاي قبل يوم 10."
+            className="w-full min-h-[140px] rounded-lg border border-input bg-background p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+          />
+          <div className="flex gap-2">
+            <Button onClick={() => onSave(platform.id, msg)} className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white">
+              {msg.trim() ? "إرسال التحذير" : "مسح التحذير الحالي"}
+            </Button>
+            {platform.admin_warning && (
+              <Button variant="outline" onClick={() => onSave(platform.id, "")}>إلغاء التحذير</Button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
