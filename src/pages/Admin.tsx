@@ -440,10 +440,17 @@ export default function Admin() {
             <div className="text-3xl font-black text-blue-500">{globalStats.totalContent.toLocaleString("ar-EG")}</div>
             <div className="text-xs text-muted-foreground mt-1">فيديو + PDF + امتحانات</div>
           </div>
-          <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 to-purple-500/5 p-5">
+          <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 to-purple-500/5 p-5 relative">
             <div className="text-xs text-muted-foreground mb-1">💎 إجمالي الإيرادات (كل الفلوس)</div>
             <div className="text-3xl font-black text-purple-500">{globalStats.lifetimeRevenue.toLocaleString("ar-EG")}<span className="text-base mr-1">ج</span></div>
             <div className="text-xs text-muted-foreground mt-1">من بداية ROOTIX لحد دلوقتي</div>
+            <button
+              onClick={resetAllRevenue}
+              className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded bg-destructive/10 text-destructive hover:bg-destructive/20"
+              title="تصفير كل الإيرادات والدفعات"
+            >
+              🗑️ تصفير
+            </button>
           </div>
         </div>
 
