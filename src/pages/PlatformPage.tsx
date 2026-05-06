@@ -381,9 +381,9 @@ export default function PlatformPage() {
     );
   }
 
-  // Dashboard
+  // Dashboard — only show published content to students (Rooty drafts hidden until teacher approves)
   const filteredContent = content.filter(
-    (c) => c.kind === activeTab && (!c.grade_level || c.grade_level === student?.grade_level)
+    (c) => c.kind === activeTab && (c.published !== false) && (!c.grade_level || c.grade_level === student?.grade_level)
   );
 
   const tabs: { k: any; label: string; icon: any }[] = [
