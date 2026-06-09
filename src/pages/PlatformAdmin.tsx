@@ -288,12 +288,13 @@ function SettingsTab({ platform, reload }: any) {
 }
 
 function ContentManager({ platform, items, refresh }: any) {
-  const [kind, setKind] = useState<"video" | "pdf" | "question" | "exam">("video");
+  const [kind, setKind] = useState<"video" | "pdf" | "question" | "exam" | "pending">("video");
   const [form, setForm] = useState({ title: "", url: "", grade_level: "", lesson: "" });
-  const [examForm, setExamForm] = useState<{ title: string; grade_level: string; questions: any[] }>({
+  const [examForm, setExamForm] = useState<{ title: string; grade_level: string; questions: any[]; duration_minutes: number }>({
     title: "",
     grade_level: "",
     questions: [{ question: "", options: ["", "", "", ""], correct: 0 }],
+    duration_minutes: 0,
   });
 
   const addSimple = async () => {
