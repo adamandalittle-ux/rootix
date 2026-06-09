@@ -5,9 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen, Lock, Unlock, Settings as Cog, Download, TrendingUp, Eye, EyeOff, Sparkles, X, Send, AlertTriangle, Radio } from "lucide-react";
+import { Plus, Trash2, Users, KeyRound, Video, FileText, ListChecks, BookOpen, Lock, Unlock, Settings as Cog, Download, TrendingUp, Eye, EyeOff, Sparkles, X, Send, AlertTriangle, Radio, CheckCircle2, Timer } from "lucide-react";
 import jsPDF from "jspdf";
-import { renderArabicPdf } from "@/lib/arabic-pdf";
+import { renderArabicPdf, renderArabicPdfPages } from "@/lib/arabic-pdf";
+import { RootixLogo } from "@/components/RootixLogo";
 
 export default function PlatformAdmin() {
   const { slug } = useParams();
@@ -108,9 +109,7 @@ export default function PlatformAdmin() {
       <nav className="border-b border-border/50 backdrop-blur-xl bg-card/70 sticky top-0 z-40">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/40 flex items-center justify-center font-bold text-primary-foreground shadow-lg shadow-primary/20">
-              {platform.config?.logo_text || platform.teacher_name?.[0] || "R"}
-            </div>
+            <RootixLogo size={40} className="shadow-lg shadow-primary/20" />
             <div>
               <div className="font-bold text-sm leading-tight">{platform.config?.platform_name}</div>
               <div className="text-xs text-muted-foreground">أ/ {platform.teacher_name}</div>
@@ -457,17 +456,23 @@ function StudentsList({ students, platform, refresh }: any) {
       const platformName = platform.config?.platform_name || `منصة ${platform.teacher_name}`;
       const subjectName = platform.subject || "";
 
+      // Page 1 — Cover (one full A4 page)
       const coverHtml = `
-        <div style="text-align:center;padding:60px 20px">
-          <div style="font-size:13px;color:#888;letter-spacing:6px;margin-bottom:8px">ROOTIX REPORTS</div>
-          <div style="font-size:34px;font-weight:900;color:#4f46e5;margin-bottom:6px">${platformName}</div>
-          <div style="font-size:18px;color:#444;margin-bottom:4px">أ/ ${platform.teacher_name} • ${subjectName}</div>
-          <div style="font-size:22px;font-weight:800;color:#0f172a;margin:30px 0 10px">📚 تقرير صف ${grade}</div>
-          <div style="font-size:15px;color:#666">عدد الطلاب: ${list.length}</div>
-          <div style="font-size:13px;color:#999;margin-top:24px">تم التوليد: ${new Date().toLocaleString("ar-EG")}</div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:1000px;text-align:center;padding:40px 20px">
+          <div style="font-size:13px;color:#888;letter-spacing:8px;margin-bottom:14px">ROOTIX • REPORTS</div>
+          <div style="font-size:42px;font-weight:900;color:#16a34a;margin-bottom:10px;line-height:1.2">${platformName}</div>
+          <div style="font-size:22px;color:#0f172a;font-weight:700;margin-bottom:6px">أ / ${platform.teacher_name}</div>
+          <div style="font-size:18px;color:#444;margin-bottom:50px">مادة ${subjectName}</div>
+          <div style="background:#16a34a;color:#fff;border-radius:18px;padding:30px 50px;margin-bottom:40px;box-shadow:0 12px 32px rgba(22,163,74,0.25)">
+            <div style="font-size:18px;opacity:0.9;margin-bottom:6px">📚 تقرير صف</div>
+            <div style="font-size:38px;font-weight:900">${grade}</div>
+            <div style="font-size:14px;opacity:0.9;margin-top:8px">${list.length} طالب</div>
+          </div>
+          <div style="font-size:13px;color:#999">تم التوليد: ${new Date().toLocaleString("ar-EG")}</div>
         </div>
       `;
 
+      // Each student → ONE full A4 page (own canvas, own page — never bleeds into the next student)
       const studentPages = list.map((s: any, idx: number) => {
         const rs = byStudent[s.id] || [];
         const totalExams = rs.length;
@@ -475,44 +480,78 @@ function StudentsList({ students, platform, refresh }: any) {
         const totalQuestions = rs.reduce((x: number, r: any) => x + (r.total || 0), 0);
         const totalWrong = totalQuestions - totalCorrect;
         const avgPct = totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
-        let level = "محتاج دعم", advice = "الطالب يحتاج لمتابعة دقيقة وحصص دعم.";
-        if (avgPct >= 85) { level = "ممتاز ⭐"; advice = "الطالب متفوق جداً، استمر في تحفيزه."; }
-        else if (avgPct >= 70) { level = "جيد جداً"; advice = "مستوى جيد، يحتاج تدريب على المسائل الصعبة."; }
-        else if (avgPct >= 50) { level = "متوسط"; advice = "يحتاج مراجعة منتظمة وحل أسئلة إضافية."; }
-        else if (avgPct >= 30) { level = "ضعيف"; advice = "محتاج متابعة من ولي الأمر وحصص دعم."; }
+        let level = "محتاج دعم", advice = "الطالب يحتاج لمتابعة دقيقة وحصص دعم.", color = "#dc2626";
+        if (avgPct >= 85) { level = "ممتاز ⭐"; advice = "الطالب متفوق جداً، استمر في تحفيزه وأعطه تحديات أصعب."; color = "#16a34a"; }
+        else if (avgPct >= 70) { level = "جيد جداً"; advice = "مستوى جيد، يحتاج تدريب على المسائل الصعبة."; color = "#0ea5e9"; }
+        else if (avgPct >= 50) { level = "متوسط"; advice = "يحتاج مراجعة منتظمة وحل أسئلة إضافية."; color = "#eab308"; }
+        else if (avgPct >= 30) { level = "ضعيف"; advice = "محتاج متابعة من ولي الأمر وحصص دعم."; color = "#f97316"; }
+
         const examsRows = rs.length === 0
-          ? `<tr><td colspan="3" style="text-align:center;padding:10px;color:#888">لم يحل امتحانات</td></tr>`
-          : rs.map((r: any, i: number) => {
+          ? `<tr><td colspan="3" style="text-align:center;padding:14px;color:#888">لم يحل امتحانات حتى الآن</td></tr>`
+          : rs.slice(0, 12).map((r: any, i: number) => {
               const pct = r.total ? Math.round((r.score / r.total) * 100) : 0;
-              return `<tr><td style="padding:6px;border-bottom:1px solid #eee">${i + 1}. ${r.content?.title || "امتحان"}</td><td style="padding:6px;border-bottom:1px solid #eee">${r.score}/${r.total} (${pct}%)</td><td style="padding:6px;border-bottom:1px solid #eee;font-size:11px;color:#777">${new Date(r.created_at).toLocaleDateString("ar-EG")}</td></tr>`;
+              return `<tr><td style="padding:7px 8px;border-bottom:1px solid #eee">${i + 1}. ${r.content?.title || "امتحان"}</td><td style="padding:7px 8px;border-bottom:1px solid #eee;font-weight:700">${r.score}/${r.total} (${pct}%)</td><td style="padding:7px 8px;border-bottom:1px solid #eee;font-size:11px;color:#777">${new Date(r.created_at).toLocaleDateString("ar-EG")}</td></tr>`;
             }).join("");
+
+        // Repeated rich header at top of EVERY student page (so printed pages stand alone)
         return `
-          <div style="page-break-before:${idx === 0 ? "auto" : "always"};padding:10px 0">
-            <div style="border-bottom:3px solid #6366f1;padding-bottom:10px;margin-bottom:14px">
-              <div style="font-size:11px;color:#888">${platformName} — ${subjectName}</div>
-              <div style="font-size:24px;font-weight:900;color:#4f46e5">📊 ${s.full_name}</div>
-              <div style="font-size:12px;color:#666;margin-top:2px">${s.grade_level} • ${s.phone} • كود: ${s.access_code}</div>
+          <div style="min-height:1000px;display:flex;flex-direction:column">
+            <div style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:18px;padding:18px 22px;margin-bottom:18px;box-shadow:0 8px 22px rgba(22,163,74,0.25)">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-size:11px;opacity:0.85;letter-spacing:4px">ROOTIX</div>
+                  <div style="font-size:22px;font-weight:900;margin-top:2px">${platformName}</div>
+                  <div style="font-size:13px;opacity:0.95;margin-top:2px">أ / ${platform.teacher_name} • ${subjectName} • ${grade}</div>
+                </div>
+                <div style="text-align:left;font-size:11px;opacity:0.9">
+                  <div>تقرير ${idx + 1} / ${list.length}</div>
+                  <div>${new Date().toLocaleDateString("ar-EG")}</div>
+                </div>
+              </div>
             </div>
-            <div style="background:#eef2ff;border:2px solid #6366f1;border-radius:12px;padding:14px;margin-bottom:12px;text-align:center">
-              <div style="font-size:12px;color:#555">المستوى الدراسي</div>
-              <div style="font-size:26px;font-weight:900;color:#4f46e5">${level}</div>
-              <div style="font-size:14px;color:#444">متوسط: ${avgPct}%</div>
+
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:14px">
+              <div style="font-size:24px;font-weight:900;color:#0f172a;margin-bottom:4px">${s.full_name}</div>
+              <div style="font-size:13px;color:#555">📞 ${s.phone} • 🎓 ${s.grade_level} • 🔑 كود: ${s.access_code}</div>
+              ${s.lesson_time || (Array.isArray(s.schedule_days) && s.schedule_days.length) ? `<div style="font-size:12px;color:#666;margin-top:4px">🗓️ ${(s.schedule_days || []).join("، ")} ${s.lesson_time ? `• الساعة ${s.lesson_time}` : ""}</div>` : ""}
             </div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
-              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:#777">امتحانات</div><div style="font-size:20px;font-weight:900">${totalExams}</div></div>
-              <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:#16a34a">صح</div><div style="font-size:20px;font-weight:900;color:#16a34a">${totalCorrect}</div></div>
-              <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:#dc2626">غلط</div><div style="font-size:20px;font-weight:900;color:#dc2626">${totalWrong}</div></div>
-              <div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:#b45309">نقاط</div><div style="font-size:20px;font-weight:900;color:#b45309">${s.points || 0}</div></div>
+
+            <div style="background:${color}15;border:2px solid ${color};border-radius:14px;padding:16px;margin-bottom:14px;text-align:center">
+              <div style="font-size:12px;color:#555">المستوى العام</div>
+              <div style="font-size:30px;font-weight:900;color:${color};margin:4px 0">${level}</div>
+              <div style="font-size:15px;color:#333">متوسط الدرجات: <b>${avgPct}%</b></div>
             </div>
-            <table style="width:100%;border-collapse:collapse;margin-bottom:12px;font-size:13px"><thead><tr style="background:#f1f5f9"><th style="padding:7px;text-align:right">الامتحان</th><th style="padding:7px;text-align:right">الدرجة</th><th style="padding:7px;text-align:right">التاريخ</th></tr></thead><tbody>${examsRows}</tbody></table>
-            <div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:10px;padding:12px;font-size:13px;color:#333"><b style="color:#b45309">📌 توصية:</b> ${advice}</div>
-            <div style="text-align:center;font-size:10px;color:#aaa;margin-top:10px">صفحة الطالب ${idx + 1} من ${list.length} • ROOTIX</div>
+
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#777">امتحانات</div><div style="font-size:22px;font-weight:900">${totalExams}</div></div>
+              <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#16a34a">صح</div><div style="font-size:22px;font-weight:900;color:#16a34a">${totalCorrect}</div></div>
+              <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#dc2626">غلط</div><div style="font-size:22px;font-weight:900;color:#dc2626">${totalWrong}</div></div>
+              <div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#b45309">نقاط</div><div style="font-size:22px;font-weight:900;color:#b45309">${s.points || 0}</div></div>
+            </div>
+
+            <div style="margin-bottom:14px;flex:1">
+              <div style="font-size:14px;font-weight:800;margin-bottom:6px;color:#0f172a">📝 سجل الامتحانات</div>
+              <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+                <thead><tr style="background:#f1f5f9">
+                  <th style="padding:8px;text-align:right">الامتحان</th>
+                  <th style="padding:8px;text-align:right">الدرجة</th>
+                  <th style="padding:8px;text-align:right">التاريخ</th>
+                </tr></thead>
+                <tbody>${examsRows}</tbody>
+              </table>
+            </div>
+
+            <div style="background:#fffbeb;border:2px solid #fbbf24;border-radius:12px;padding:14px;font-size:13px;color:#333;line-height:1.7">
+              <b style="color:#b45309">📌 رسالة لولي الأمر:</b> ${advice}
+            </div>
+
+            <div style="text-align:center;font-size:10px;color:#aaa;margin-top:auto;padding-top:12px">صفحة الطالب ${idx + 1} من ${list.length} • تم التوليد عبر منصة ROOTIX</div>
           </div>
         `;
-      }).join("");
+      });
 
-      await renderArabicPdf(coverHtml + studentPages, `تقارير-${grade}-${platform.slug}.pdf`);
-      toast.success(`✅ تم تحميل تقرير ${list.length} طالب`);
+      await renderArabicPdfPages([coverHtml, ...studentPages], `تقارير-${grade}-${platform.slug}.pdf`);
+      toast.success(`✅ تم تحميل ${list.length} تقرير — كل طالب في صفحة لوحده`);
     } catch (e: any) {
       toast.error("فشل: " + e.message);
     } finally {
