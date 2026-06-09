@@ -672,11 +672,25 @@ function StudentReportModal({ student, platform, onClose }: { student: any; plat
           </tr>`;
         }).join("");
 
+    const platformName = platform?.config?.platform_name || `منصة ${platform?.teacher_name || ""}`;
+    const subjectName = platform?.subject || "";
+    const teacherName = platform?.teacher_name || "";
+
     const html = `
-      <div style="border-bottom:3px solid #6366f1;padding-bottom:14px;margin-bottom:18px">
-        <div style="font-size:28px;font-weight:900;color:#6366f1">📊 تقرير الطالب الشامل</div>
-        <div style="font-size:13px;color:#666;margin-top:4px">صادر من منصة ROOTIX — ${new Date().toLocaleString("ar-EG")}</div>
+      <div style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:18px;padding:22px 26px;margin-bottom:20px;box-shadow:0 12px 30px rgba(22,163,74,0.25)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+          <div>
+            <div style="font-size:11px;opacity:0.85;letter-spacing:6px;margin-bottom:4px">ROOTIX • تقرير طالب</div>
+            <div style="font-size:30px;font-weight:900;line-height:1.2">${platformName}</div>
+            <div style="font-size:16px;opacity:0.95;margin-top:4px">أ / ${teacherName} • مادة ${subjectName}</div>
+          </div>
+          <div style="text-align:left;font-size:12px;opacity:0.9;background:rgba(255,255,255,0.15);padding:8px 12px;border-radius:10px">
+            <div>📅 ${new Date().toLocaleDateString("ar-EG")}</div>
+            <div>🕐 ${new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</div>
+          </div>
+        </div>
       </div>
+
 
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:18px">
         <div style="font-size:20px;font-weight:800;margin-bottom:10px;color:#0f172a">بيانات الطالب</div>
