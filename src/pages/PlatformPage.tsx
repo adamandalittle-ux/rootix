@@ -685,6 +685,9 @@ function ExamCard({ item, student, primary, platformId }: any) {
   const [previousAttempt, setPreviousAttempt] = useState<{ score: number; total: number } | null>(null);
 
   const questions = item.data?.questions || [];
+  const durationSeconds: number = item.duration_seconds || (item.data?.duration_minutes ? item.data.duration_minutes * 60 : 0);
+  const [timeLeft, setTimeLeft] = useState<number>(durationSeconds);
+  const submittedRef = useRef(false);
 
   // Check if student already attempted
   useEffect(() => {
@@ -699,8 +702,9 @@ function ExamCard({ item, student, primary, platformId }: any) {
     })();
   }, [item.id, student.id]);
 
-  const submit = async () => {
-    if (previousAttempt) return;
+  const submit = async (auto = false) => {
+    if (submittedRef.current || previousAttempt) return;
+    submittedRef.current = true;
     let score = 0;
     questions.forEach((q: any, i: number) => {
       if (answers[i] === q.correct) score++;
@@ -721,8 +725,20 @@ function ExamCard({ item, student, primary, platformId }: any) {
     }
     setSubmitted({ score, total: questions.length });
     setPreviousAttempt({ score, total: questions.length });
-    toast.success(`درجتك: ${score}/${questions.length} • +${score} نقطة 🌟`);
+    toast.success(auto
+      ? `⏰ خلص الوقت — درجتك: ${score}/${questions.length}`
+      : `درجتك: ${score}/${questions.length} • +${score} نقطة 🌟`);
   };
+
+  // Countdown timer with auto-submit
+  useEffect(() => {
+    if (!showExam || submitted || !durationSeconds) return;
+    if (timeLeft <= 0) { submit(true); return; }
+    const t = setInterval(() => setTimeLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [showExam, submitted, timeLeft, durationSeconds]);
+
+  const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   if (!showExam) {
     const locked = !!previousAttempt;
@@ -741,17 +757,31 @@ function ExamCard({ item, student, primary, platformId }: any) {
             <div className="text-[10px] text-muted-foreground font-normal mt-0.5">مينفعش تحل تاني</div>
           </div>
         ) : (
-          <div className="text-xs text-muted-foreground mt-1">{questions.length} سؤال • +{questions.length} نقطة محتملة</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {questions.length} سؤال • +{questions.length} نقطة محتملة
+            {durationSeconds > 0 && <span className="block mt-0.5 font-bold text-orange-500">⏱️ مدة الامتحان: {Math.round(durationSeconds / 60)} دقيقة</span>}
+          </div>
         )}
       </button>
     );
   }
 
+  const timerDanger = durationSeconds > 0 && timeLeft <= 30;
+
   return (
     <div className="md:col-span-3 rounded-xl border border-border bg-card p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h3 className="font-semibold">{item.title}</h3>
-        <Button variant="ghost" size="sm" onClick={() => setShowExam(false)}>إغلاق</Button>
+        <div className="flex items-center gap-2">
+          {durationSeconds > 0 && !submitted && (
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-black text-base border-2 transition-all ${
+              timerDanger ? "border-red-500 bg-red-500/15 text-red-600 animate-pulse" : "border-orange-500/50 bg-orange-500/10 text-orange-600"
+            }`}>
+              ⏱️ {fmtTime(timeLeft)}
+            </div>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => !submitted && confirm("هتطلع من الامتحان؟ هيتسلم تلقائي بالإجابات الحالية.") && submit(true)}>إغلاق</Button>
+        </div>
       </div>
       {submitted ? (
         <div className="text-center py-8">
@@ -782,14 +812,20 @@ function ExamCard({ item, student, primary, platformId }: any) {
               </div>
             </div>
           ))}
-          <Button onClick={submit} className="w-full" style={{ background: primary, color: "#fff" }}>
+          <Button onClick={() => submit(false)} className="w-full" style={{ background: primary, color: "#fff" }}>
             تسليم الامتحان
           </Button>
+          {durationSeconds > 0 && (
+            <div className="text-xs text-center text-muted-foreground">
+              ℹ️ لو خلص الوقت قبل ما تسلّم، اللي اتحل بس هيتصحح والباقي صفر.
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+
 
 function AiSummarySection({ platform, student }: any) {
   return (
