@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Check, ArrowLeft, Loader2, Sparkles, Crown, Phone, MessageCircle } from "lucide-react";
 import { PACKAGES } from "@/lib/pricing";
+import { RootixLogo } from "@/components/RootixLogo";
 
 export default function Pricing() {
   const [params] = useSearchParams();
@@ -100,7 +101,7 @@ export default function Pricing() {
             <span className="text-sm text-muted-foreground">العودة</span>
           </Link>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center font-bold text-primary-foreground">R</div>
+            <RootixLogo size={32} />
             <span className="font-bold">باقات ROOTIX</span>
           </div>
         </div>

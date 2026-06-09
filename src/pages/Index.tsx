@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Zap, Shield, Users, ArrowLeft, Check, Star } from "lucide-react";
+import { RootixLogo } from "@/components/RootixLogo";
 // Star kept for features grid below
 
 const Index = () => {
@@ -10,9 +11,7 @@ const Index = () => {
       <nav className="border-b border-border/50 backdrop-blur-xl bg-background/50 sticky top-0 z-50">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center font-bold text-primary-foreground">
-              R
-            </div>
+            <RootixLogo size={36} />
             <span className="font-bold text-lg tracking-tight">ROOTIX</span>
           </Link>
           <div className="flex items-center gap-3">

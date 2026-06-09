@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LogOut, Users, CheckCircle, XCircle, Pause, Play, ArrowLeft, Phone, Calendar, AlertTriangle, TrendingUp, TrendingDown, Eye, Trash2, Search, Copy, ExternalLink, Sparkles, Bell, Loader2, DollarSign, Clock, X, FileText, Download } from "lucide-react";
+import { RootixLogo } from "@/components/RootixLogo";
 
 
 interface Platform {
@@ -332,7 +333,7 @@ export default function Admin() {
       <div className="min-h-screen flex items-center justify-center p-6" dir="rtl">
         <form onSubmit={login} className="w-full max-w-sm rounded-2xl border border-border bg-card p-8">
           <div className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center font-bold text-primary-foreground">R</div>
+            <RootixLogo size={32} />
             <span className="font-bold">ROOTIX Admin</span>
           </div>
           <h1 className="text-2xl font-bold mb-6">تسجيل دخول الأدمن</h1>
@@ -395,7 +396,7 @@ export default function Admin() {
       <nav className="border-b border-border/50 backdrop-blur-xl bg-background/50 sticky top-0 z-50">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center font-bold text-primary-foreground">R</div>
+            <RootixLogo size={32} />
             <span className="font-bold">ROOTIX Admin</span>
             <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full mr-2">Live</span>
           </div>
