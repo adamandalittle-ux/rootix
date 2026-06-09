@@ -317,16 +317,19 @@ function ContentManager({ platform, items, refresh }: any) {
     if (!examForm.title || !examForm.grade_level) return toast.error("املأ الحقول");
     const valid = examForm.questions.filter(q => q.question && q.options.every((o: string) => o));
     if (valid.length === 0) return toast.error("ضع سؤال واحد على الأقل");
+    const durationSeconds = Math.max(0, Math.round((examForm.duration_minutes || 0) * 60));
     const { error } = await supabase.from("content").insert({
       platform_id: platform.id,
       kind,
       title: examForm.title,
       grade_level: examForm.grade_level,
-      data: { questions: valid } as any,
-    });
+      data: { questions: valid, duration_minutes: examForm.duration_minutes || 0 } as any,
+      duration_seconds: durationSeconds,
+      published: true,
+    } as any);
     if (error) return toast.error(error.message);
     toast.success("تمت الإضافة");
-    setExamForm({ title: "", grade_level: "", questions: [{ question: "", options: ["", "", "", ""], correct: 0 }] });
+    setExamForm({ title: "", grade_level: "", questions: [{ question: "", options: ["", "", "", ""], correct: 0 }], duration_minutes: 0 });
     refresh();
   };
 
@@ -335,7 +338,18 @@ function ContentManager({ platform, items, refresh }: any) {
     refresh();
   };
 
+  const approve = async (id: string) => {
+    await supabase.from("content").update({ published: true } as any).eq("id", id);
+    toast.success("✅ تم النشر للطلاب");
+    refresh();
+  };
+
   const grades = (platform.grade_levels as string[]) || [];
+  const pendingCount = items.filter((i: any) => i.published === false).length;
+
+  const visibleItems = kind === "pending"
+    ? items.filter((i: any) => i.published === false)
+    : items.filter((i: any) => i.kind === kind);
 
   return (
     <div>
@@ -356,63 +370,115 @@ function ContentManager({ platform, items, refresh }: any) {
             <t.icon className="w-3.5 h-3.5" />{t.label}
           </button>
         ))}
+        <button
+          onClick={() => setKind("pending")}
+          className={`px-3 py-1.5 rounded-lg border text-sm flex items-center gap-1.5 transition-all ${
+            kind === "pending"
+              ? "border-yellow-500 bg-yellow-500/15 text-yellow-700"
+              : pendingCount > 0
+                ? "border-yellow-500/60 bg-yellow-500/10 text-yellow-700 animate-pulse"
+                : "border-border"
+          }`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5" />
+          مراجعة Rooty
+          {pendingCount > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-yellow-500 text-white text-[11px] font-black">
+              {pendingCount}
+            </span>
+          )}
+        </button>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4 mb-6">
-        {kind === "video" || kind === "pdf" ? (
-          <div className="grid md:grid-cols-2 gap-3">
-            <Input placeholder="العنوان" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            <select value={form.grade_level} onChange={(e) => setForm({ ...form, grade_level: e.target.value })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-              <option value="">الصف</option>
-              {grades.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <Input placeholder={kind === "video" ? "رابط الفيديو" : "رابط PDF"} value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} className="md:col-span-2" />
-            <Input placeholder="اسم الدرس (اختياري)" value={form.lesson} onChange={(e) => setForm({ ...form, lesson: e.target.value })} className="md:col-span-2" />
-            <Button onClick={addSimple} className="md:col-span-2 bg-primary text-primary-foreground">
-              <Plus className="w-4 h-4 ml-1" />إضافة
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <Input placeholder="عنوان الامتحان/السؤال" value={examForm.title} onChange={(e) => setExamForm({ ...examForm, title: e.target.value })} />
-            <select value={examForm.grade_level} onChange={(e) => setExamForm({ ...examForm, grade_level: e.target.value })} className="h-10 rounded-md border border-input bg-background px-3 text-sm w-full">
-              <option value="">الصف</option>
-              {grades.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-            {examForm.questions.map((q, qi) => (
-              <div key={qi} className="rounded-lg border border-border p-3 space-y-2">
-                <Input placeholder={`السؤال ${qi + 1}`} value={q.question} onChange={(e) => {
-                  const qs = [...examForm.questions]; qs[qi].question = e.target.value; setExamForm({ ...examForm, questions: qs });
-                }} />
-                {q.options.map((o: string, oi: number) => (
-                  <div key={oi} className="flex gap-2 items-center">
-                    <input type="radio" checked={q.correct === oi} onChange={() => {
-                      const qs = [...examForm.questions]; qs[qi].correct = oi; setExamForm({ ...examForm, questions: qs });
-                    }} />
-                    <Input placeholder={`اختيار ${oi + 1}`} value={o} onChange={(e) => {
-                      const qs = [...examForm.questions]; qs[qi].options[oi] = e.target.value; setExamForm({ ...examForm, questions: qs });
-                    }} />
-                  </div>
-                ))}
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setExamForm({ ...examForm, questions: [...examForm.questions, { question: "", options: ["", "", "", ""], correct: 0 }] })}>
-                <Plus className="w-4 h-4 ml-1" />سؤال جديد
+      {kind !== "pending" && (
+        <div className="rounded-xl border border-border bg-card p-4 mb-6">
+          {kind === "video" || kind === "pdf" ? (
+            <div className="grid md:grid-cols-2 gap-3">
+              <Input placeholder="العنوان" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <select value={form.grade_level} onChange={(e) => setForm({ ...form, grade_level: e.target.value })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                <option value="">الصف</option>
+                {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <Input placeholder={kind === "video" ? "رابط الفيديو" : "رابط PDF"} value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} className="md:col-span-2" />
+              <Input placeholder="اسم الدرس (اختياري)" value={form.lesson} onChange={(e) => setForm({ ...form, lesson: e.target.value })} className="md:col-span-2" />
+              <Button onClick={addSimple} className="md:col-span-2 bg-primary text-primary-foreground">
+                <Plus className="w-4 h-4 ml-1" />إضافة
               </Button>
-              <Button onClick={addExam} className="bg-primary text-primary-foreground flex-1">حفظ</Button>
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid md:grid-cols-3 gap-3">
+                <Input placeholder="عنوان الامتحان/السؤال" value={examForm.title} onChange={(e) => setExamForm({ ...examForm, title: e.target.value })} className="md:col-span-2" />
+                <select value={examForm.grade_level} onChange={(e) => setExamForm({ ...examForm, grade_level: e.target.value })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">الصف</option>
+                  {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <Timer className="w-4 h-4 text-primary shrink-0" />
+                <label className="text-xs font-bold whitespace-nowrap">مدة الامتحان (دقائق):</label>
+                <Input
+                  type="number" min={0} max={300}
+                  value={examForm.duration_minutes || ""}
+                  onChange={(e) => setExamForm({ ...examForm, duration_minutes: Math.max(0, Number(e.target.value) || 0) })}
+                  placeholder="0 = بدون مؤقت"
+                  className="w-32 text-center font-bold"
+                />
+                <span className="text-[10px] text-muted-foreground">لما الوقت يخلص الامتحان بيتسلم تلقائي</span>
+              </div>
+              {examForm.questions.map((q, qi) => (
+                <div key={qi} className="rounded-lg border border-border p-3 space-y-2">
+                  <Input placeholder={`السؤال ${qi + 1}`} value={q.question} onChange={(e) => {
+                    const qs = [...examForm.questions]; qs[qi].question = e.target.value; setExamForm({ ...examForm, questions: qs });
+                  }} />
+                  {q.options.map((o: string, oi: number) => (
+                    <div key={oi} className="flex gap-2 items-center">
+                      <input type="radio" checked={q.correct === oi} onChange={() => {
+                        const qs = [...examForm.questions]; qs[qi].correct = oi; setExamForm({ ...examForm, questions: qs });
+                      }} />
+                      <Input placeholder={`اختيار ${oi + 1}`} value={o} onChange={(e) => {
+                        const qs = [...examForm.questions]; qs[qi].options[oi] = e.target.value; setExamForm({ ...examForm, questions: qs });
+                      }} />
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setExamForm({ ...examForm, questions: [...examForm.questions, { question: "", options: ["", "", "", ""], correct: 0 }] })}>
+                  <Plus className="w-4 h-4 ml-1" />سؤال جديد
+                </Button>
+                <Button onClick={addExam} className="bg-primary text-primary-foreground flex-1">حفظ</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {kind === "pending" && pendingCount === 0 && (
+        <div className="rounded-2xl border-2 border-dashed border-border bg-card p-10 text-center text-muted-foreground">
+          <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-green-500/60" />
+          مفيش حاجة منتظرة مراجعة 👌 — كل محتوى Rooty منشور.
+        </div>
+      )}
 
       <div className="space-y-2">
-        {items.filter((i: any) => i.kind === kind).map((i: any) => (
-          <div key={i.id} className="rounded-lg border border-border bg-card p-3 flex items-center justify-between">
-            <div>
-              <div className="font-medium text-sm">{i.title}</div>
-              <div className="text-xs text-muted-foreground">{i.grade_level} {i.lesson ? `• ${i.lesson}` : ""}</div>
+        {visibleItems.map((i: any) => (
+          <div key={i.id} className={`rounded-lg border p-3 flex items-center justify-between gap-2 ${i.published === false ? "border-yellow-500/50 bg-yellow-500/5" : "border-border bg-card"}`}>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm flex items-center gap-2">
+                {i.published === false && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-700 border border-yellow-500/40">⏳ مسودة Rooty</span>}
+                <span className="truncate">{i.title}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {i.kind === "video" ? "🎥" : i.kind === "pdf" ? "📄" : i.kind === "exam" ? "📝" : "❓"} {i.grade_level} {i.lesson ? `• ${i.lesson}` : ""}
+                {i.duration_seconds ? ` • ⏱️ ${Math.round(i.duration_seconds / 60)} د` : ""}
+              </div>
             </div>
+            {i.published === false && (
+              <Button size="sm" onClick={() => approve(i.id)} className="bg-green-600 hover:bg-green-700 text-white">
+                <CheckCircle2 className="w-3.5 h-3.5 ml-1" />نشر للطلاب
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={() => del(i.id)}>
               <Trash2 className="w-4 h-4 text-destructive" />
             </Button>
@@ -422,6 +488,7 @@ function ContentManager({ platform, items, refresh }: any) {
     </div>
   );
 }
+
 
 function StudentsList({ students, platform, refresh }: any) {
   const [reportFor, setReportFor] = useState<any>(null);
