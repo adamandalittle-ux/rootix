@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BookOpen, Video, FileText, ListChecks, Sparkles, LogOut, Lock, Trophy, Calendar, Clock } from "lucide-react";
 import { getTemplateById, hexToHslString, type Template } from "@/lib/templates";
+import PlatformLanding from "@/components/PlatformLanding";
 
 interface Platform {
   id: string;
