@@ -398,6 +398,7 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-background" dir="rtl">
+      <RootyScanAnimation open={!!checkingId} primary="#2563EB" accent="#22d3ee" />
       <nav className="border-b border-border/50 backdrop-blur-xl bg-background/50 sticky top-0 z-50">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
