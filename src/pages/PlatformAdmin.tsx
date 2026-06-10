@@ -124,6 +124,17 @@ export default function PlatformAdmin() {
       </nav>
 
       <div className="container mx-auto px-4 py-6">
+        {/* ⏳ Pending review — block content editing */}
+        {platform.status === "pending" && (
+          <div className="mb-4 rounded-2xl border-2 border-blue-500/60 bg-gradient-to-l from-blue-500/15 via-blue-500/8 to-transparent p-5 flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center shrink-0 text-2xl">⏳</div>
+            <div>
+              <div className="text-xs font-black text-blue-600 dark:text-blue-400 mb-1 tracking-wider">قيد مراجعة ROOTIX</div>
+              <div className="text-sm font-semibold leading-relaxed">المنصة لسه ما اتفعلتش رسمياً. لو حاولت تضيف محتوى دلوقتي مش هيظهر للطلاب. استنى موافقة الإدارة.</div>
+            </div>
+          </div>
+        )}
+
         {/* 🟡 Admin warning to teacher */}
         {platform.admin_warning && (
           <div className="mb-4 rounded-2xl border-2 border-yellow-500/60 bg-gradient-to-l from-yellow-500/20 via-yellow-500/10 to-yellow-500/5 p-4 flex items-center gap-3 shadow-lg shadow-yellow-500/10 animate-in fade-in slide-in-from-top-2">

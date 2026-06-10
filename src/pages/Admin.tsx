@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LogOut, Users, CheckCircle, XCircle, Pause, Play, ArrowLeft, Phone, Calendar, AlertTriangle, TrendingUp, TrendingDown, Eye, Trash2, Search, Copy, ExternalLink, Sparkles, Bell, Loader2, DollarSign, Clock, X, FileText, Download } from "lucide-react";
 import { RootixLogo } from "@/components/RootixLogo";
+import RootyScanAnimation from "@/components/RootyScanAnimation";
 
 
 interface Platform {
@@ -128,14 +129,18 @@ export default function Admin() {
 
   const runAiCheck = async (platformId: string) => {
     setCheckingId(platformId);
+    const startedAt = Date.now();
     try {
       const { data, error } = await supabase.functions.invoke("rootix-check", {
         body: { platform_id: platformId },
       });
       if (error) throw error;
+      // Keep cinematic animation visible at least 9s
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 9000) await new Promise((r) => setTimeout(r, 9000 - elapsed));
       setCheckResults((prev) => ({ ...prev, [platformId]: data }));
       if (data.fixes_applied?.length) {
-        toast.success(`🛠️ AI أصلح ${data.fixes_applied.length} مشكلة`);
+        toast.success(`🛠️ Rooty أصلح ${data.fixes_applied.length} مشكلة`);
       } else if (data.ok) {
         toast.success("✅ المنصة سليمة 100%");
       } else {
@@ -393,6 +398,7 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-background" dir="rtl">
+      <RootyScanAnimation open={!!checkingId} primary="#2563EB" accent="#22d3ee" />
       <nav className="border-b border-border/50 backdrop-blur-xl bg-background/50 sticky top-0 z-50">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">

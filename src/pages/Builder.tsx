@@ -477,7 +477,7 @@ export default function Builder() {
 
             {/* Big preview buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-              <a href={`/m/${createdPlatform.slug}`} target="_blank" rel="noreferrer" className="group rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 transition-all p-4 flex items-center gap-3 active:scale-[0.98]">
+              <a href={`/m/${createdPlatform.slug}?preview=1`} target="_blank" rel="noreferrer" className="group rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 transition-all p-4 flex items-center gap-3 active:scale-[0.98]">
                 <div className="w-11 h-11 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition">
                   <Eye className="w-5 h-5 text-primary" />
                 </div>

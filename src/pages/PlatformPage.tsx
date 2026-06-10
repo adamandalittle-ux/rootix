@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BookOpen, Video, FileText, ListChecks, Sparkles, LogOut, Lock, Trophy, Calendar, Clock } from "lucide-react";
 import { getTemplateById, hexToHslString, type Template } from "@/lib/templates";
+import PlatformLanding from "@/components/PlatformLanding";
 
 interface Platform {
   id: string;
@@ -39,8 +40,12 @@ interface Student {
 
 export default function PlatformPage() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const isPreview = searchParams.get("preview") === "1";
   const [platform, setPlatform] = useState<Platform | null>(null);
   const [loading, setLoading] = useState(true);
+  const [studentCount, setStudentCount] = useState(0);
+  const [showLanding, setShowLanding] = useState(true);
   const [student, setStudent] = useState<Student | null>(null);
   const [step, setStep] = useState<"code" | "register" | "dashboard">("code");
   const [code, setCode] = useState("");
@@ -55,6 +60,7 @@ export default function PlatformPage() {
     if (savedStudent) {
       setStudent(JSON.parse(savedStudent));
       setStep("dashboard");
+      setShowLanding(false);
     }
   }, [slug]);
 
@@ -112,7 +118,11 @@ export default function PlatformPage() {
     setLoading(false);
     if (error || !data) return;
     setPlatform(data as any);
-    // If gate is open and student not yet registered → skip code step, go to register
+    // Live student count for landing
+    const { count } = await supabase
+      .from("students").select("id", { count: "exact", head: true })
+      .eq("platform_id", (data as any).id);
+    setStudentCount(count || 0);
     const savedStudent = localStorage.getItem(`rootix_student_${slug}`);
     if (!savedStudent && (data as any).gate_mode === "open") {
       setStep("register");
@@ -259,8 +269,27 @@ export default function PlatformPage() {
   }
 
   const cfg = platform.config || {};
-  const primary = cfg.primary_color || "#22c55e";
+  const primary = cfg.primary_color || "#2563EB";
   const accent = cfg.accent_color || primary;
+
+  // Pending → block public access unless preview mode
+  if (platform.status === "pending" && !isPreview) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-center"
+        style={{ background: `radial-gradient(circle at center, ${primary}15, transparent 60%)` }}>
+        <div className="max-w-md">
+          <div className="w-20 h-20 mx-auto rounded-3xl mb-4 flex items-center justify-center text-4xl"
+            style={{ background: `linear-gradient(135deg, ${primary}, ${accent})`, boxShadow: `0 16px 40px -16px ${primary}` }}>⏳</div>
+          <div className="text-xs font-bold tracking-[0.3em] mb-2" style={{ color: primary }}>ROOTIX</div>
+          <h1 className="text-2xl font-black mb-2">قيد المراجعة</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            منصة الأستاذ <strong>{platform.teacher_name}</strong> تحت مراجعة فريق ROOTIX.
+            هتشتغل تلقائياً بعد الموافقة. لو محتاج تتفرج عليها كمعاينة، استخدم رابط المعاينة من لوحة المدرس.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Themed page
   const themeStyle = {
@@ -268,11 +297,27 @@ export default function PlatformPage() {
     "--plat-accent": accent,
   } as React.CSSProperties;
 
+  // Landing page (before login / code entry)
+  if (showLanding && step !== "dashboard") {
+    return (
+      <PlatformLanding
+        teacherName={platform.teacher_name}
+        subject={platform.subject}
+        platformName={cfg.platform_name}
+        primary={primary}
+        accent={accent}
+        studentsCount={studentCount}
+        onEnter={() => setShowLanding(false)}
+      />
+    );
+  }
+
   if (step === "code" || step === "register") {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={themeStyle}>
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
+            <button onClick={() => setShowLanding(true)} className="text-xs text-muted-foreground mb-3 hover:underline">→ رجوع لصفحة المنصة</button>
             <div
               className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl font-bold"
               style={{ background: `linear-gradient(135deg, ${primary}, ${accent})`, color: "#fff" }}
