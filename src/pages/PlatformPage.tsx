@@ -40,8 +40,12 @@ interface Student {
 
 export default function PlatformPage() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const isPreview = searchParams.get("preview") === "1";
   const [platform, setPlatform] = useState<Platform | null>(null);
   const [loading, setLoading] = useState(true);
+  const [studentCount, setStudentCount] = useState(0);
+  const [showLanding, setShowLanding] = useState(true);
   const [student, setStudent] = useState<Student | null>(null);
   const [step, setStep] = useState<"code" | "register" | "dashboard">("code");
   const [code, setCode] = useState("");
