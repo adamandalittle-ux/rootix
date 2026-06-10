@@ -118,7 +118,11 @@ export default function PlatformPage() {
     setLoading(false);
     if (error || !data) return;
     setPlatform(data as any);
-    // If gate is open and student not yet registered → skip code step, go to register
+    // Live student count for landing
+    const { count } = await supabase
+      .from("students").select("id", { count: "exact", head: true })
+      .eq("platform_id", (data as any).id);
+    setStudentCount(count || 0);
     const savedStudent = localStorage.getItem(`rootix_student_${slug}`);
     if (!savedStudent && (data as any).gate_mode === "open") {
       setStep("register");
