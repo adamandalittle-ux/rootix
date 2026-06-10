@@ -129,14 +129,18 @@ export default function Admin() {
 
   const runAiCheck = async (platformId: string) => {
     setCheckingId(platformId);
+    const startedAt = Date.now();
     try {
       const { data, error } = await supabase.functions.invoke("rootix-check", {
         body: { platform_id: platformId },
       });
       if (error) throw error;
+      // Keep cinematic animation visible at least 9s
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 9000) await new Promise((r) => setTimeout(r, 9000 - elapsed));
       setCheckResults((prev) => ({ ...prev, [platformId]: data }));
       if (data.fixes_applied?.length) {
-        toast.success(`🛠️ AI أصلح ${data.fixes_applied.length} مشكلة`);
+        toast.success(`🛠️ Rooty أصلح ${data.fixes_applied.length} مشكلة`);
       } else if (data.ok) {
         toast.success("✅ المنصة سليمة 100%");
       } else {
