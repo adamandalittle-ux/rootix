@@ -60,6 +60,7 @@ export default function PlatformPage() {
     if (savedStudent) {
       setStudent(JSON.parse(savedStudent));
       setStep("dashboard");
+      setShowLanding(false);
     }
   }, [slug]);
 
