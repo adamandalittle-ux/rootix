@@ -269,8 +269,27 @@ export default function PlatformPage() {
   }
 
   const cfg = platform.config || {};
-  const primary = cfg.primary_color || "#22c55e";
+  const primary = cfg.primary_color || "#2563EB";
   const accent = cfg.accent_color || primary;
+
+  // Pending → block public access unless preview mode
+  if (platform.status === "pending" && !isPreview) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-center"
+        style={{ background: `radial-gradient(circle at center, ${primary}15, transparent 60%)` }}>
+        <div className="max-w-md">
+          <div className="w-20 h-20 mx-auto rounded-3xl mb-4 flex items-center justify-center text-4xl"
+            style={{ background: `linear-gradient(135deg, ${primary}, ${accent})`, boxShadow: `0 16px 40px -16px ${primary}` }}>⏳</div>
+          <div className="text-xs font-bold tracking-[0.3em] mb-2" style={{ color: primary }}>ROOTIX</div>
+          <h1 className="text-2xl font-black mb-2">قيد المراجعة</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            منصة الأستاذ <strong>{platform.teacher_name}</strong> تحت مراجعة فريق ROOTIX.
+            هتشتغل تلقائياً بعد الموافقة. لو محتاج تتفرج عليها كمعاينة، استخدم رابط المعاينة من لوحة المدرس.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Themed page
   const themeStyle = {
@@ -278,11 +297,27 @@ export default function PlatformPage() {
     "--plat-accent": accent,
   } as React.CSSProperties;
 
+  // Landing page (before login / code entry)
+  if (showLanding && step !== "dashboard") {
+    return (
+      <PlatformLanding
+        teacherName={platform.teacher_name}
+        subject={platform.subject}
+        platformName={cfg.platform_name}
+        primary={primary}
+        accent={accent}
+        studentsCount={studentCount}
+        onEnter={() => setShowLanding(false)}
+      />
+    );
+  }
+
   if (step === "code" || step === "register") {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={themeStyle}>
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
+            <button onClick={() => setShowLanding(true)} className="text-xs text-muted-foreground mb-3 hover:underline">→ رجوع لصفحة المنصة</button>
             <div
               className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl font-bold"
               style={{ background: `linear-gradient(135deg, ${primary}, ${accent})`, color: "#fff" }}
